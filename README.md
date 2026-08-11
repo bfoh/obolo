@@ -67,7 +67,17 @@ npm run db:reset      # rebuild a local database from scratch (needs Docker)
 npm run db:lint
 ```
 
-Local development against a real Postgres needs Docker or OrbStack installed, for `supabase start`.
+### Verifying the ledger
+
+```bash
+npm run db:verify
+```
+
+Applies every migration to a throwaway Postgres, **twice** (proving idempotency), then exercises the ledger end to end: FIFO draws oldest-first, transfers preserve per-batch cost and are value-neutral, short receipts leave a visible residual in transit, overselling is refused, the ledger rejects UPDATE and DELETE, reversals restore quantity and value exactly, the three-way integrity check agrees, and every cost column reads `null` for staff.
+
+This runs on a real Postgres binary shipped inside `node_modules` (`embedded-postgres`), so it needs no Docker and no system install. It is the gate that matters: a valuation bug is the one failure this app cannot ship, and the logic lives in SQL where unit tests cannot reach it.
+
+It is not a substitute for `supabase db reset` — it shims the parts of a Supabase database that migrations assume (the `auth` schema, the client roles, the `extensions` schema) rather than being one.
 
 ## Scripts
 

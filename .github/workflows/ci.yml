@@ -38,15 +38,20 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: supabase/setup-cli@v1
+      - uses: actions/setup-node@v5
         with:
-          version: latest
+          node-version: 22
+          cache: npm
 
-      # Applies every migration to a throwaway Postgres from scratch. This is
-      # the only thing that proves the migrations are ordered, idempotent, and
-      # syntactically valid before they touch the real project.
-      - name: Apply migrations to a clean database
-        run: supabase db start && supabase db reset --no-seed
+      - run: npm ci
 
-      - name: Lint schema
-        run: supabase db lint --level warning
+      # Applies every migration to a throwaway Postgres, twice (to prove
+      # idempotency), then exercises the ledger: FIFO ordering, transfer cost
+      # fidelity, value-neutrality, oversell refusal, append-only enforcement,
+      # reversal, the three-way integrity check, and cost masking per role.
+      #
+      # This is the gate that matters. A valuation bug is the one failure this
+      # app cannot ship, and unit tests cannot catch it -- the logic lives in
+      # SQL, so it has to be proven against a real Postgres.
+      - name: Verify migrations and ledger behaviour
+        run: npm run db:verify

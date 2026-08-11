@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "db:push": "supabase db push",
     "db:lint": "supabase db lint",
-    "db:reset": "supabase db reset"
+    "db:reset": "supabase db reset",
+    "db:verify": "node scripts/verify-migrations.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",
@@ -42,6 +43,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.5",
+    "embedded-postgres": "^18.4.0-beta.17",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
     "jsdom": "^30.0.1",
