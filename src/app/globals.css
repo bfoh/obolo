@@ -1,26 +1,332 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Theme is class-driven so the user's toggle wins over the OS preference.
+   `<html>` always carries either `light` or `dark` (set before paint by the
+   inline script in app/layout.tsx), so there is no unstyled flash. */
+@custom-variant dark (&:where(.dark, .dark *));
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+/* ---------------------------------------------------------------------------
+   FIXED RAMP — values that never change between themes.
+   Semantic, theme-aware tokens are defined under :root / .dark below.
+--------------------------------------------------------------------------- */
+@theme {
+  /* Type. Archivo = stencilled bay signage. Plex Sans = body.
+     Plex Mono = every quantity, cost, lot code and document number. */
+  --font-display: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", monospace;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* Industrial: structural containers are sharp, controls barely softened. */
+  --radius-sharp: 0px;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-sheet: 16px;
+
+  /* Raw brand ramp. Prefer the semantic aliases (bg-surface, text-ink, …). */
+  --color-concrete-50: #f2f3f0;
+  --color-concrete-100: #e4e6e1;
+  --color-concrete-200: #d3d6cf;
+  --color-concrete-300: #b6bbb3;
+  --color-concrete-400: #8f958d;
+  --color-concrete-500: #7c837f;
+  --color-bitumen-700: #2b3138;
+  --color-bitumen-800: #1d2226;
+  --color-bitumen-900: #14171a;
+  --color-bitumen-950: #101315;
+
+  --color-signal-400: #f06a54;
+  --color-signal-500: #e8442a;
+  --color-signal-600: #c2331d;
+  --color-tally-400: #2f9179;
+  --color-tally-500: #1e6f5c;
+  --color-tally-600: #165446;
+  --color-amber-400: #efa32c;
+  --color-amber-500: #d98a0b;
+  --color-amber-600: #ad6d08;
+  --color-transit-400: #4b8bc4;
+  --color-transit-500: #2d6ca8;
+  --color-transit-600: #225384;
+
+  /* Z-index ladder. Inherited from Serwaa's mobile hardening work and kept
+     explicit so nothing is ever assigned an ad-hoc z-value again. */
+  --z-nav: 40;
+  --z-overlay: 50;
+  --z-sheet-backdrop: 60;
+  --z-sheet: 61;
+  --z-toast: 70;
+  --z-status: 80;
+
+  /* Motion */
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-slide-up: slide-up 0.28s var(--ease-out-quint);
+  --animate-slide-in-right: slide-in-right 0.28s var(--ease-out-quint);
+  --animate-fade-in: fade-in 0.18s ease-out;
+
+  @keyframes slide-up {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  @keyframes slide-in-right {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ---------------------------------------------------------------------------
+   SEMANTIC TOKENS
+   Every component reads these, never the raw ramp. Both themes must define
+   the full set — a missing token in one theme is a silent regression.
+--------------------------------------------------------------------------- */
+:root,
+.light {
+  color-scheme: light;
+
+  --surface: #e4e6e1; /* sealed concrete floor */
+  --panel: #f2f3f0; /* raised card */
+  --panel-2: #ffffff; /* input wells, hover */
+  --panel-sunk: #d3d6cf; /* table headers, insets */
+
+  --ink: #14171a; /* primary text, structural rules */
+  --ink-2: #2b3138; /* secondary text */
+  --ink-3: #6f766f; /* labels, captions, disabled */
+  --ink-invert: #f2f3f0;
+
+  --line: #14171a; /* 2px structural rule */
+  --hairline: #b6bbb3; /* 1px divider, table rows */
+
+  --signal: #c2331d; /* shortfall, damage, negative variance */
+  --signal-soft: #fbe4e0;
+  --tally: #165446; /* verified, in stock, positive */
+  --tally-soft: #dceae5;
+  --warn: #ad6d08; /* expiring, low stock */
+  --warn-soft: #faedd6;
+  --transit: #225384; /* stock in transit between locations */
+  --transit-soft: #dde8f2;
+
+  --focus: #2d6ca8;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --surface: #101315;
+  --panel: #191d20;
+  --panel-2: #21262a;
+  --panel-sunk: #14171a;
+
+  --ink: #e4e6e1;
+  --ink-2: #b6bbb3;
+  --ink-3: #8f958d;
+  --ink-invert: #101315;
+
+  /* Rules lighten rather than invert: a pure-white 2px grid at night is glare. */
+  --line: #3a4148;
+  --hairline: #2b3138;
+
+  --signal: #f06a54;
+  --signal-soft: #3a1c17;
+  --tally: #3fa88d;
+  --tally-soft: #12302a;
+  --warn: #efa32c;
+  --warn-soft: #3a2a0d;
+  --transit: #6ba3d6;
+  --transit-soft: #16283a;
+
+  --focus: #6ba3d6;
+}
+
+/* Bridge semantic vars into Tailwind utilities. `inline` keeps the utility
+   pointing at the var (not a copied value) so theme switching is live. */
+@theme inline {
+  --color-surface: var(--surface);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-panel-sunk: var(--panel-sunk);
+
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-invert: var(--ink-invert);
+
+  --color-line: var(--line);
+  --color-hairline: var(--hairline);
+
+  --color-signal: var(--signal);
+  --color-signal-soft: var(--signal-soft);
+  --color-tally: var(--tally);
+  --color-tally-soft: var(--tally-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-transit: var(--transit);
+  --color-transit-soft: var(--transit-soft);
+
+  --color-focus: var(--focus);
+}
+
+/* ---------------------------------------------------------------------------
+   BASE
+--------------------------------------------------------------------------- */
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    background-color: var(--surface);
+  }
+
+  body {
+    background-color: var(--surface);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    overscroll-behavior-y: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Display face is signage: always uppercase, always tight. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    line-height: 1.05;
+  }
+
+  /* Every figure in this app is a quantity, a cost, or an identifier, and all
+     of them need to align in columns. Tabular by default, not by opt-in. */
+  [data-numeric],
+  .numeric {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1, "zero" 1;
+  }
+
+  /* iOS zooms any focused input below 16px. Warehouse staff are on phones. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   COMPONENT PRIMITIVES
+--------------------------------------------------------------------------- */
+@layer components {
+  /* Structural rule. Ported from Serwaa's .harsh-border, now theme-aware. */
+  .rule {
+    border: 2px solid var(--line);
+  }
+  .rule-t {
+    border-top: 2px solid var(--line);
+  }
+  .rule-b {
+    border-bottom: 2px solid var(--line);
+  }
+
+  .hairline-b {
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  /* Hard offset press. The shadow collapses under the control so it reads as
+     a physical stamp rather than a hover glow. */
+  .press {
+    box-shadow: 2px 2px 0 0 var(--line);
+    transition:
+      transform 60ms linear,
+      box-shadow 60ms linear;
+  }
+  .press:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0 0 0 0 var(--line);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .press:active {
+      transform: none;
+    }
+  }
+
+  /* Eyebrow / field label. */
+  .micro {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-3);
+  }
+
+  /* Document and location codes: GRN-00231, WH · A-04 · L2, LOT-2608-114.
+     These are real identifiers, so they get identifier treatment. */
+  .code {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   UTILITIES
+--------------------------------------------------------------------------- */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility pb-sheet {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+}
+@utility h-nav {
+  height: calc(3.75rem + env(safe-area-inset-bottom));
 }

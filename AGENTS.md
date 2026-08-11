@@ -7,3 +7,34 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+# OBOLO
+
+Warehouse stock and valuation. One company, three roles, FIFO batch costing.
+See README.md for the architecture.
+
+## Non-negotiables
+
+- **Base tables live in `core`, which PostgREST does not serve.** Never add a
+  table to `public`. Reads go through `public.v_*` views (which mask cost via
+  `is_owner()`), writes go through `public.post_*` RPCs. There is no third path.
+- **Every SECURITY DEFINER function derives identity from `auth.uid()`**, never
+  from an argument. A function taking a user id is an IDOR.
+- **Money arithmetic never happens in TypeScript.** Postgres returns `numeric`
+  as a string; float64 cannot hold `numeric(18,6)` exactly. All summing,
+  allocation and valuation is SQL. The client formats only.
+- **A masked cost is `null`, not `0`.** Use `isMasked()` from `src/lib/format.ts`.
+- **The stock ledger is append-only.** `core.stock_movements` and
+  `core.movement_batch_allocations` are never UPDATEd or DELETEd. Corrections
+  are a reversal plus a replacement, carrying a reason.
+- **Never add a cost-bearing table to the `supabase_realtime` publication.**
+  Realtime respects RLS but ships full row payloads and ignores column grants.
+
+## Conventions
+
+- Pure logic in `src/lib/*.ts` with a colocated `.test.ts`.
+- Migrations are CLI-managed in `supabase/migrations/`, timestamp-ordered, and
+  must be idempotent — never hand-pasted into the SQL editor.
+- Tailwind v4: semantic tokens only (`bg-surface`, `text-ink`, `border-line`).
+  Never reach for the raw ramp (`bitumen-900`) outside the shell chrome.
+- Numeric data uses the mono face and tabular figures: `className="numeric"`.

@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Committed on purpose: documents required env without carrying secrets.
+!.env.example
