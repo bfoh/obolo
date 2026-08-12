@@ -389,6 +389,86 @@ async function runLedgerTests(db) {
   );
   check("and posts exactly once", damageCount.n, 1);
 
+  // --- the authoring path, using only public RPCs -------------------------
+  // Everything above set up its fixtures by writing to core directly. This
+  // section uses only what the app can actually reach, which is the thing that
+  // has to work.
+  console.log("\nAuthoring path (public RPCs only)");
+
+  const newProduct = await one(
+    `select public.create_product('OIL-5L', 'Cooking oil 5L', 'jerrycan', 120, 135, 5) as id`,
+  );
+  check("owner can create a product", typeof newProduct.id, "string");
+
+  const grn = await one(
+    `select public.create_receipt(null, $1, 'WB-9001', 60) as id`,
+    [supplier.id],
+  );
+  await db.query(
+    `select public.set_receipt_line($1, $2, 30, 100, null, 'LOT-A')`,
+    [grn.id, newProduct.id],
+  );
+  await db.query("select public.post_receipt($1)", [grn.id]);
+
+  const oilLevel = await one(
+    `select qty_on_hand, total_cost_value from core.stock_levels
+      where product_id = $1 and location_id = $2`,
+    [newProduct.id, wh.id],
+  );
+  check("delivery posted through RPCs lands in stock", oilLevel.qty_on_hand, "30.000");
+  // 30 @ 100 invoice + 60 freight spread over 30 units = 102/unit => 3060.
+  check("freight is spread across the line", oilLevel.total_cost_value, "3060.000000");
+
+  let editPosted = "no error";
+  try {
+    await db.query(`select public.set_receipt_line($1, $2, 5, 100)`, [grn.id, newProduct.id]);
+  } catch (error) {
+    editPosted = error.message.includes("no longer be edited") ? "refused" : error.message;
+  }
+  check("a posted delivery cannot be edited", editPosted, "refused");
+
+  const trf = await one(`select public.create_transfer($1, $2) as id`, [wh.id, shop.id]);
+  await db.query(`select public.set_transfer_line($1, $2, 12)`, [trf.id, newProduct.id]);
+  await db.query("select public.post_transfer_dispatch($1)", [trf.id]);
+
+  let editDispatched = "no error";
+  try {
+    await db.query(`select public.set_transfer_line($1, $2, 20)`, [trf.id, newProduct.id]);
+  } catch (error) {
+    editDispatched = error.message.includes("no longer be edited") ? "refused" : error.message;
+  }
+  check("a dispatched transfer cannot be edited", editDispatched, "refused");
+
+  await asUser(staff.id);
+  let staffCreatesProduct = "no error";
+  try {
+    await db.query(`select public.create_product('X-1', 'Sneaky', 'piece', 1, 2)`);
+  } catch (error) {
+    staffCreatesProduct = error.message.includes("only an owner") ? "refused" : error.message;
+  }
+  check("staff cannot create a product and set its prices", staffCreatesProduct, "refused");
+
+  let staffReceipt = "no error";
+  try {
+    await db.query(`select public.create_receipt(null, $1, 'WB-2')`, [supplier.id]);
+  } catch (error) {
+    staffReceipt = error.message.includes("only an owner") ? "refused" : error.message;
+  }
+  check("staff cannot open a delivery and price it", staffReceipt, "refused");
+
+  const staffTransfer = await one(`select public.create_transfer($1, $2) as id`, [wh.id, shop.id]);
+  check("warehouse staff can start a transfer out of their warehouse", typeof staffTransfer.id, "string");
+
+  let staffWrongWay = "no error";
+  try {
+    await db.query(`select public.create_transfer($1, $2)`, [shop.id, wh.id]);
+  } catch (error) {
+    staffWrongWay = error.message.includes("may not move stock") ? "refused" : error.message;
+  }
+  check("warehouse staff cannot move stock out of the shop", staffWrongWay, "refused");
+
+  await asUser(owner.id);
+
   // --- closed periods ------------------------------------------------------
   await db.query(
     "update core.accounting_periods set closed_at = now(), closed_by = $1 where closed_at is null",
