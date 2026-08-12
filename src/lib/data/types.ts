@@ -266,3 +266,89 @@ export interface TeamMemberRow {
   location_ids: string[];
   created_at: string;
 }
+
+export interface CustomerRow {
+  id: string;
+  code: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  kind: "wholesale" | "retail" | "walk_in";
+  credit_limit: Money;
+  balance: Money;
+  credit_available: Money;
+  payment_terms_days: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface LedgerEntryRow {
+  id: string;
+  seq: number;
+  customer_id: string;
+  entry_type: "invoice" | "payment" | "credit_note" | "adjustment" | "write_off";
+  amount: Money;
+  order_id: string | null;
+  invoice_no: string | null;
+  payment_id: string | null;
+  receipt_no: string | null;
+  reason: string | null;
+  occurred_at: string;
+  created_by_name: string | null;
+}
+
+export interface SalesOrderRow {
+  id: string;
+  order_no: string;
+  invoice_no: string | null;
+  channel: "wholesale" | "retail";
+  location_id: string;
+  location_code: string;
+  customer_id: string | null;
+  customer_name: string | null;
+  status: "draft" | "fulfilled" | "cancelled";
+  payment_status: "unpaid" | "partial" | "paid";
+  subtotal: Money;
+  discount: Money;
+  total: Money;
+  paid: Money;
+  owing: Money;
+  total_cogs: MaskedMoney;
+  gross_profit: MaskedMoney;
+  due_date: string | null;
+  occurred_at: string;
+  invoiced_at: string | null;
+  notes: string | null;
+  line_count: number;
+}
+
+export interface SalesOrderLineRow {
+  id: string;
+  order_id: string;
+  product_id: string;
+  sku: string;
+  product_name: string;
+  base_unit: string;
+  qty: Qty;
+  unit_price: Money;
+  discount: Money;
+  line_total: Money;
+  cogs: MaskedMoney;
+  margin: MaskedMoney;
+}
+
+export interface PaymentRow {
+  id: string;
+  receipt_no: string;
+  customer_id: string;
+  customer_name: string;
+  amount: Money;
+  method: "cash" | "momo" | "bank" | "cheque";
+  reference: string | null;
+  note: string | null;
+  received_at: string;
+  reverses_payment_id: string | null;
+  is_reversed: boolean;
+  received_by_name: string | null;
+}

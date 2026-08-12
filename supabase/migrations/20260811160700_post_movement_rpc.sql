@@ -264,5 +264,10 @@ grant execute on function public.post_movement(
   public.movement_type, uuid, uuid, numeric, text, uuid, timestamptz, numeric, numeric
 ) to authenticated;
 
-comment on function core.post_movement is
-  'The only way stock moves. Allocates FIFO under an advisory lock, refuses to oversell.';
+-- Fully qualified by argument list. A later migration adds a sales-order-line
+-- parameter, so while the sequence is being replayed both signatures exist at
+-- this point and an unqualified name would be ambiguous.
+comment on function core.post_movement(
+  public.movement_type, uuid, uuid, numeric, uuid, timestamptz, numeric, numeric,
+  uuid, text, uuid, uuid, uuid, text, date, uuid, timestamptz, uuid, uuid
+) is 'The only way stock moves. Allocates FIFO under an advisory lock, refuses to oversell.';

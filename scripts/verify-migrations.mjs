@@ -469,6 +469,149 @@ async function runLedgerTests(db) {
 
   await asUser(owner.id);
 
+  // --- sales, credit and payments -----------------------------------------
+  console.log("\nSales, credit and payments");
+
+  const customer = await one(
+    `select public.create_customer('CUST-1', 'Adom Stores', '0244000000', null, 'wholesale', 20000, 30) as id`,
+  );
+  check("owner creates a customer with a credit limit", typeof customer.id, "string");
+
+  const balanceOf = async () =>
+    (await one("select core.customer_balance($1) as b", [customer.id])).b;
+
+  check("a new customer owes nothing", await balanceOf(), "0");
+
+  // Warehouse holds 99: 49 @ 12 (older, one unit already damaged off the top
+  // of that batch by the idempotency check above) and 50 @ 22.
+  const sellable = await one(
+    `select qty_on_hand from core.stock_levels where product_id = $1 and location_id = $2`,
+    [product.id, wh.id],
+  );
+  check("stock is there to sell", sellable.qty_on_hand, "99.000");
+
+  const sale = await one(
+    `select public.create_sale('wholesale', $1, $2, current_date + 30) as id`,
+    [wh.id, customer.id],
+  );
+  await db.query(`select public.set_sale_line($1, $2, 60, 30)`, [sale.id, product.id]);
+  await db.query("select public.post_sale($1, 0)", [sale.id]);
+
+  const posted = await one(
+    "select total, total_cogs, gross_profit, payment_status, invoice_no from core.sales_orders where id = $1",
+    [sale.id],
+  );
+  check("the invoice totals 60 x 30", posted.total, "1800.00");
+  // FIFO: 49 @ 12 = 588, then 11 @ 22 = 242 -> 830.
+  check("COGS comes from the batches actually drawn", posted.total_cogs, "830.000000");
+  check("margin is price minus real cost", posted.gross_profit, "970.000000");
+  check("an unpaid sale is marked unpaid", posted.payment_status, "unpaid");
+  check("the sale is invoiced", posted.invoice_no, "INV-00001");
+
+  check("the customer now owes the invoice", await balanceOf(), "1800.00");
+
+  const afterSale = await one(
+    "select qty_on_hand from core.stock_levels where product_id = $1 and location_id = $2",
+    [product.id, wh.id],
+  );
+  check("selling took the stock out", afterSale.qty_on_hand, "39.000");
+
+  // Credit limit is checked before any stock moves.
+  const bigSale = await one(`select public.create_sale('wholesale', $1, $2, current_date + 30) as id`, [
+    wh.id,
+    customer.id,
+  ]);
+  await db.query(`select public.set_sale_line($1, $2, 40, 1000)`, [bigSale.id, product.id]);
+
+  let creditRefused = "no error";
+  try {
+    await db.query("select public.post_sale($1, 0)", [bigSale.id]);
+  } catch (error) {
+    creditRefused = error.message.includes("credit refused") ? "refused" : error.message;
+  }
+  check("a sale beyond the credit limit is refused", creditRefused, "refused");
+
+  const stockUntouched = await one(
+    "select qty_on_hand from core.stock_levels where product_id = $1 and location_id = $2",
+    [product.id, wh.id],
+  );
+  check("and no stock moved on the refused sale", stockUntouched.qty_on_hand, "39.000");
+
+  // Part payment.
+  const payment = await one(
+    `select public.record_payment($1, 500, 'momo', 'MM-123') as id`,
+    [customer.id],
+  );
+  check("recording a payment reduces the balance", await balanceOf(), "1300.00");
+
+  const partial = await one("select payment_status from core.sales_orders where id = $1", [sale.id]);
+  check("the invoice becomes part-paid", partial.payment_status, "partial");
+
+  // Overpay: the excess stays on account rather than being refused.
+  await db.query(`select public.record_payment($1, 2000, 'cash')`, [customer.id]);
+  check("an overpayment leaves a credit balance", await balanceOf(), "-700.00");
+
+  const settled = await one("select payment_status from core.sales_orders where id = $1", [sale.id]);
+  check("and the invoice is settled", settled.payment_status, "paid");
+
+  // Reversal puts everything back.
+  await db.query("select public.reverse_payment($1, 'momo reversal from the bank')", [payment.id]);
+  check("reversing a payment restores the balance", await balanceOf(), "-200.00");
+
+  let payTwice = "no error";
+  try {
+    await db.query("select public.reverse_payment($1, 'again')", [payment.id]);
+  } catch (error) {
+    payTwice = error.message.includes("already been reversed") ? "refused" : error.message;
+  }
+  check("a payment cannot be reversed twice", payTwice, "refused");
+
+  let mutatePayment = "no error";
+  try {
+    await db.query("update core.payments set amount = 1 where true");
+  } catch (error) {
+    mutatePayment = error.message.includes("append-only") ? "refused" : error.message;
+  }
+  check("payments refuse to be edited", mutatePayment, "refused");
+
+  // A walk-in paying cash owes nothing and should leave no receivable at all.
+  const walkIn = await one(`select public.create_sale('retail', $1, null) as id`, [shop.id]);
+  await db.query(`select public.set_sale_line($1, $2, 2, 40)`, [walkIn.id, product.id]);
+  await db.query(`select public.post_sale($1, 80, 'cash')`, [walkIn.id]);
+
+  const walkInRow = await one("select payment_status, customer_id from core.sales_orders where id = $1", [
+    walkIn.id,
+  ]);
+  check("a paid walk-in sale is marked paid", walkInRow.payment_status, "paid");
+  check("and creates no customer record", walkInRow.customer_id, "null");
+
+  const ledgerCount = await one("select count(*)::int as n from core.customer_ledger_entries");
+  check("the walk-in wrote nothing to any ledger", ledgerCount.n, 4);
+
+  // A sale left partly unpaid must name who owes it.
+  const anon = await one(`select public.create_sale('retail', $1, null) as id`, [shop.id]);
+  await db.query(`select public.set_sale_line($1, $2, 1, 40)`, [anon.id, product.id]);
+  let anonCredit = "no error";
+  try {
+    await db.query("select public.post_sale($1, 0)", [anon.id]);
+  } catch (error) {
+    anonCredit = error.message.includes("needs a named customer") ? "refused" : error.message;
+  }
+  check("there is no anonymous credit", anonCredit, "refused");
+
+  const integrityAfterSales = await one("select count(*)::int as n from core.check_stock_integrity()");
+  check("stock still reconciles after trading", integrityAfterSales.n, 0);
+
+  await asUser(staff.id);
+  const staffOrder = await one(
+    "select total, total_cogs, gross_profit from public.v_sales_orders where id = $1",
+    [sale.id],
+  );
+  check("staff see the sale total", staffOrder.total, "1800.00");
+  check("staff see null for COGS", staffOrder.total_cogs, "null");
+  check("staff see null for margin", staffOrder.gross_profit, "null");
+  await asUser(owner.id);
+
   // --- closed periods ------------------------------------------------------
   await db.query(
     "update core.accounting_periods set closed_at = now(), closed_by = $1 where closed_at is null",
