@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StockTable } from "./StockTable";
 import { StockSearch } from "./StockSearch";
+import { ScanButton } from "@/components/scan/ScanButton";
 import { isMasked, money, qty as formatQty } from "@/lib/format";
 
 /**
@@ -38,7 +39,11 @@ export async function LocationStockView({
 
   return (
     <>
-      <PageHeader title={location.name} code={location.code} />
+      <PageHeader
+        title={location.name}
+        code={location.code}
+        actions={<ScanButton locationId={location.id} label="Scan" />}
+      />
 
       <main className="px-5 py-6">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-4">

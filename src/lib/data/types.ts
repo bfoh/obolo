@@ -417,3 +417,34 @@ export interface ReturnLineRow {
   unit_price: Money;
   line_total: Money;
 }
+
+export interface PurchaseOrderRow {
+  id: string;
+  po_no: string;
+  supplier_id: string;
+  supplier_name: string;
+  location_id: string;
+  location_code: string;
+  status: "draft" | "sent" | "partially_received" | "received" | "cancelled" | "closed";
+  ordered_at: string | null;
+  expected_at: string | null;
+  subtotal: MaskedMoney;
+  total: MaskedMoney;
+  notes: string | null;
+  line_count: number;
+  qty_outstanding: Qty;
+}
+
+export interface PurchaseOrderLineRow {
+  id: string;
+  po_id: string;
+  product_id: string;
+  sku: string;
+  product_name: string;
+  base_unit: string;
+  qty_ordered: Qty;
+  qty_received: Qty;
+  qty_outstanding: Qty;
+  unit_cost: MaskedMoney;
+  line_total: MaskedMoney;
+}

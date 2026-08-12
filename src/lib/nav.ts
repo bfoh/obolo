@@ -2,6 +2,7 @@ import {
   ArrowLeftRight,
   Boxes,
   ClipboardCheck,
+  ClipboardList,
   Gauge,
   PackagePlus,
   Receipt,
@@ -67,6 +68,13 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { href: "/customers", label: "Customers", icon: Users, capability: "customers", group: "trade" },
   { href: "/suppliers", label: "Suppliers", icon: Truck, capability: "suppliers", group: "trade" },
+  {
+    href: "/purchase-orders",
+    label: "Orders",
+    icon: ClipboardList,
+    capability: "suppliers",
+    group: "trade",
+  },
   { href: "/returns", label: "Returns", icon: RotateCcw, capability: "returns", group: "trade" },
 
   { href: "/counts", label: "Counts", icon: ClipboardCheck, capability: "countSubmit", group: "control" },

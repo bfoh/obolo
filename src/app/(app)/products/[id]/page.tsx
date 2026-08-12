@@ -7,6 +7,8 @@ import { isOwner } from "@/lib/permissions";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ProductForm } from "@/components/catalogue/ProductForm";
 import { RetireProduct } from "@/components/catalogue/RetireProduct";
+import { BarcodePanel } from "@/components/scan/BarcodePanel";
+import { getProductBarcodes } from "@/lib/data/stock";
 import { money, qty as formatQty } from "@/lib/format";
 import { buttonVariants } from "@/components/ui/Button";
 
@@ -28,6 +30,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[id]"
 
   if (!product) notFound();
   const owner = isOwner(user?.role);
+  const barcodes = owner ? await getProductBarcodes(id) : [];
 
   const stocked = locations.filter((l) => l.kind !== "in_transit");
   const levels = await Promise.all(stocked.map((l) => getStockLevel(id, l.id)));
@@ -75,6 +78,15 @@ export default async function ProductPage({ params }: PageProps<"/products/[id]"
               </h2>
               <ProductForm product={product} />
             </section>
+
+            <div className="mt-5">
+              <BarcodePanel
+                productId={product.id}
+                baseUnit={product.base_unit}
+                packUnit={product.pack_unit}
+                barcodes={barcodes}
+              />
+            </div>
 
             <div className="mt-5">
               <RetireProduct

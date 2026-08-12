@@ -161,6 +161,28 @@ export async function searchProducts(term: string, limit = 20): Promise<ProductR
   return unwrap<ProductRow[]>(data, error, "products");
 }
 
+export interface ProductBarcodeRow {
+  id: string;
+  product_id: string;
+  barcode: string;
+  unit: string;
+  is_primary: boolean;
+}
+
+export async function getProductBarcodes(productId: string): Promise<ProductBarcodeRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("v_product_barcodes")
+    .select("*")
+    .eq("product_id", productId)
+    .order("is_primary", { ascending: false });
+  if (error) {
+    console.error(`[data] barcodes: ${error.message}`);
+    return [];
+  }
+  return (data ?? []) as ProductBarcodeRow[];
+}
+
 export async function getMovements(options: {
   productId?: string;
   locationId?: string;

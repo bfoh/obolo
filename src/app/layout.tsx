@@ -1,26 +1,46 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const archivo = Archivo({
+/**
+ * Fonts are self-hosted rather than pulled from Google at build time.
+ *
+ * next/font/google fetches the files during the build, which makes the build
+ * depend on network access to a third party -- it failed exactly that way on a
+ * machine that could not reach fonts.googleapis.com. Self-hosting also means no
+ * request leaves the user's browser to a third party when the app loads, and
+ * the files are served from the same origin behind the same cache headers.
+ *
+ * Latin subset only; these are the weights the design system actually uses.
+ */
+const archivo = localFont({
   variable: "--font-archivo",
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
   display: "swap",
+  src: [
+    { path: "./fonts/Archivo-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/Archivo-700.woff2", weight: "700", style: "normal" },
+    { path: "./fonts/Archivo-800.woff2", weight: "800", style: "normal" },
+  ],
 });
 
-const plexSans = IBM_Plex_Sans({
+const plexSans = localFont({
   variable: "--font-plex-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
   display: "swap",
+  src: [
+    { path: "./fonts/IBMPlexSans-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/IBMPlexSans-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/IBMPlexSans-600.woff2", weight: "600", style: "normal" },
+  ],
 });
 
-const plexMono = IBM_Plex_Mono({
+const plexMono = localFont({
   variable: "--font-plex-mono",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
   display: "swap",
+  src: [
+    { path: "./fonts/IBMPlexMono-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/IBMPlexMono-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/IBMPlexMono-600.woff2", weight: "600", style: "normal" },
+  ],
 });
 
 export const metadata: Metadata = {

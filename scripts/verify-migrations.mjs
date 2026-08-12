@@ -736,6 +736,103 @@ async function runLedgerTests(db) {
   const returnIntegrity = await one("select count(*)::int as n from core.check_stock_integrity()");
   check("stock reconciles after returns", returnIntegrity.n, 0);
 
+  // --- purchase orders and barcodes ---------------------------------------
+  console.log("\nPurchase orders and barcodes");
+
+  const po = await one(`select public.create_purchase_order($1) as id`, [supplier.id]);
+  await db.query(`select public.set_po_line($1, $2, 100, 15)`, [po.id, product.id]);
+
+  const poRow = await one("select po_no, status, subtotal from core.purchase_orders where id = $1", [
+    po.id,
+  ]);
+  check("the order totals itself", poRow.subtotal, "1500.000000");
+  check("and is numbered", poRow.po_no, "PO-00001");
+
+  let receiveDraft = "no error";
+  try {
+    await db.query("select public.create_receipt_from_po($1)", [po.id]);
+  } catch (error) {
+    receiveDraft = error.message.includes("send it before") ? "refused" : error.message;
+  }
+  check("a draft order cannot be received against", receiveDraft, "refused");
+
+  await db.query(`select public.set_po_status($1, 'sent')`, [po.id]);
+
+  // Receiving 60 of 100 leaves the order partly open.
+  const grnFromPo = await one(`select public.create_receipt_from_po($1) as id`, [po.id]);
+  const prefilled = await one(
+    "select qty_received, invoice_unit_cost from core.receipt_lines where receipt_id = $1",
+    [grnFromPo.id],
+  );
+  check("the delivery is pre-filled with what is outstanding", prefilled.qty_received, "100.000");
+  check("priced as ordered", prefilled.invoice_unit_cost, "15.000000");
+
+  await db.query("update core.receipt_lines set qty_received = 60 where receipt_id = $1", [
+    grnFromPo.id,
+  ]);
+  await db.query("select public.post_receipt($1)", [grnFromPo.id]);
+
+  const afterPartial = await one(
+    `select po.status, l.qty_received
+       from core.purchase_orders po
+       join core.purchase_order_lines l on l.po_id = po.id
+      where po.id = $1`,
+    [po.id],
+  );
+  check("the order tracks what has arrived", afterPartial.qty_received, "60.000");
+  check("and knows it is only partly received", afterPartial.status, "partially_received");
+
+  const grn2 = await one(`select public.create_receipt_from_po($1) as id`, [po.id]);
+  const remaining = await one(
+    "select qty_received from core.receipt_lines where receipt_id = $1",
+    [grn2.id],
+  );
+  check("the next delivery offers only the remainder", remaining.qty_received, "40.000");
+
+  await db.query("select public.post_receipt($1)", [grn2.id]);
+  const closed = await one("select status from core.purchase_orders where id = $1", [po.id]);
+  check("a fully received order closes itself", closed.status, "received");
+
+  let receiveAgain = "no error";
+  try {
+    await db.query("select public.create_receipt_from_po($1)", [po.id]);
+  } catch (error) {
+    receiveAgain = error.message.includes("already been received") ? "refused" : error.message;
+  }
+  check("and cannot be received against again", receiveAgain, "refused");
+
+  // Barcodes.
+  await db.query(`select public.add_product_barcode($1, '5901234123457', 'bag', true)`, [product.id]);
+  const scan = await one(`select * from public.lookup_barcode('5901234123457', $1)`, [wh.id]);
+  check("scanning a code finds the product", scan.sku, "RICE-50");
+  check("and reports what is on that shelf", Number(scan.qty_on_hand) > 0, true);
+  check("owner sees the value of it", typeof scan.stock_value, "string");
+
+  const missing = await db.query(`select * from public.lookup_barcode('0000000000000', $1)`, [wh.id]);
+  check("an unknown code returns nothing rather than erroring", missing.rows.length, 0);
+
+  await asUser(staff.id);
+  const staffScan = await one(`select * from public.lookup_barcode('5901234123457', $1)`, [wh.id]);
+  check("staff can scan too", staffScan.sku, "RICE-50");
+  check("but see no value", staffScan.stock_value, "null");
+
+  let staffBarcode = "no error";
+  try {
+    await db.query(`select public.add_product_barcode($1, '999', 'bag')`, [product.id]);
+  } catch (error) {
+    staffBarcode = error.message.includes("only an owner") ? "refused" : error.message;
+  }
+  check("staff cannot reassign a barcode", staffBarcode, "refused");
+
+  let staffPo = "no error";
+  try {
+    await db.query(`select public.create_purchase_order($1)`, [supplier.id]);
+  } catch (error) {
+    staffPo = error.message.includes("only an owner") ? "refused" : error.message;
+  }
+  check("staff cannot commit the company to an order", staffPo, "refused");
+  await asUser(owner.id);
+
   // --- closed periods ------------------------------------------------------
   await db.query(
     "update core.accounting_periods set closed_at = now(), closed_by = $1 where closed_at is null",
