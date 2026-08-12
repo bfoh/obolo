@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Settings,
   Sparkles,
+  MessageSquare,
   Store,
   TrendingUp,
   Truck,
@@ -80,6 +81,8 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/counts", label: "Counts", icon: ClipboardCheck, capability: "countSubmit", group: "control" },
   { href: "/reports", label: "Reports", icon: TrendingUp, capability: "reports", group: "control" },
   { href: "/insights", label: "Insights", icon: Sparkles, capability: "insights", group: "control" },
+  // Everyone gets the assistant; what it can do is filtered by their role.
+  { href: "/assistant", label: "Assistant", icon: MessageSquare, group: "control" },
   { href: "/settings", label: "Settings", icon: Settings, capability: "settings", group: "control" },
 ];
 

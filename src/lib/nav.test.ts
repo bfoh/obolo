@@ -10,7 +10,7 @@ describe("navFor", () => {
   });
 
   it("shows nothing but the unguarded routes to an unresolved role", () => {
-    expect(hrefs(null)).toEqual(["/", "/products"]);
+    expect(hrefs(null)).toEqual(["/", "/products", "/assistant"]);
   });
 
   it("keeps warehouse staff out of the shop and vice versa", () => {
@@ -60,16 +60,18 @@ describe("mobileNavFor", () => {
 
 describe("navGroupsFor", () => {
   it("drops groups a role has no items in", () => {
-    // An unresolved role only keeps the unguarded valuation route.
-    expect(navGroupsFor(null).map((g) => g.group)).toEqual(["stock"]);
+    // An unresolved role keeps only the unguarded routes, so the whole trade
+    // group disappears rather than rendering an empty heading.
+    expect(navGroupsFor(null).map((g) => g.group)).toEqual(["stock", "control"]);
+    expect(navGroupsFor(null).map((g) => g.group)).not.toContain("trade");
   });
 
   it("returns all three groups for the owner", () => {
     expect(navGroupsFor("owner").map((g) => g.group)).toEqual(["stock", "trade", "control"]);
   });
 
-  it("leaves retail staff a control group holding only counts", () => {
+  it("leaves retail staff a control group without reports or settings", () => {
     const control = navGroupsFor("retail_staff").find((g) => g.group === "control");
-    expect(control?.items.map((i) => i.href)).toEqual(["/counts"]);
+    expect(control?.items.map((i) => i.href)).toEqual(["/counts", "/assistant"]);
   });
 });

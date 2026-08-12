@@ -17,6 +17,7 @@
     "db:push:direct": "node scripts/push-migrations.mjs"
   },
   "dependencies": {
+    "@ai-sdk/react": "^4.0.67",
     "@hookform/resolvers": "^5.7.1",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
