@@ -43,6 +43,15 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
+
+  // API routes authenticate themselves -- some by session, the scheduled ones
+  // by a shared secret because they run with no user at all. Redirecting them
+  // to an HTML login page is a nonsense reply to a machine, and it silently
+  // turns "unauthorised" into "200 OK with a login form".
+  if (pathname.startsWith("/api/")) {
+    return response;
+  }
+
   const isPublic = PUBLIC_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`),
   );

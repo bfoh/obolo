@@ -2,6 +2,8 @@ import { PackagePlus, Plus } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getReceipts } from "@/lib/data/receipts";
+import { searchProducts } from "@/lib/data/stock";
+import { DocumentIntake } from "@/components/scan/DocumentIntake";
 import { getCurrentUser } from "@/lib/auth";
 import { isOwner } from "@/lib/permissions";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -17,6 +19,7 @@ export default async function ReceivePage() {
   const [user, receipts] = await Promise.all([getCurrentUser(), getReceipts()]);
   // Opening a delivery means entering costs, which is the owner's job.
   const canOpen = isOwner(user?.role);
+  const products = canOpen ? await searchProducts("", 300) : [];
 
   return (
     <>
@@ -33,6 +36,12 @@ export default async function ReceivePage() {
       />
 
       <main className="px-5 py-6">
+        {canOpen && products.length > 0 ? (
+          <div className="mb-5">
+            <DocumentIntake products={products} />
+          </div>
+        ) : null}
+
         {receipts.length === 0 ? (
           <EmptyState
             icon={PackagePlus}

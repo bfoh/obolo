@@ -96,3 +96,35 @@ It is not a substitute for `supabase db reset` — it shims the parts of a Supab
 - **A masked cost is `null`, not `0`.** `isMasked()` in `src/lib/format.ts` distinguishes them; rendering a masked value as `₵0.00` claims the stock is worthless.
 - **Every SECURITY DEFINER function derives identity from `auth.uid()`**, never from an argument. A function that accepts a user id lets any caller pass someone else's.
 - **Pure logic lives in `src/lib/*.ts` with a colocated `.test.ts`.**
+
+## The AI layer
+
+Four features, all through the Vercel AI Gateway with `anthropic/*` model
+strings. One rule runs through all of them: **the model never writes.**
+
+| | |
+|---|---|
+| `/assistant` | Asks and answers. Read tools run through the same masked views as the rest of the app; write tools return a proposal a person confirms. |
+| `/receive` → photograph | Reads a delivery note. Lands in `needs_review`; every line must be matched and priced by a human before it becomes a draft delivery. |
+| `/insights` | Written overnight by a scheduled job from SQL-computed numbers. The model chooses what is worth saying, not what the numbers are. |
+| `/reports` | Ask in plain words. The model picks one of five fixed reports and its period — it never writes SQL. |
+
+Two things make that safe rather than merely stated:
+
+- **Reads go through the caller's own session.** A staff member's assistant
+  cannot report a cost, because the view returns null to it exactly as it does
+  everywhere else.
+- **Writes carry the proposal's id as the idempotency token**, so confirming
+  the same suggestion twice — a double tap, a retried request — posts once.
+
+Spend is recorded per call in `core.ai_usage` and checked before every request,
+because a cap that cannot be measured is a wish.
+
+### Scheduling
+
+`vercel.json` runs `/api/insights` nightly at 04:00 UTC. It authenticates with
+`CRON_SECRET` rather than a session, since it runs with no user.
+
+```bash
+curl -X POST "$URL/api/insights" -H "Authorization: Bearer $CRON_SECRET"
+```
