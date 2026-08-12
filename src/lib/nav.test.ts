@@ -10,7 +10,7 @@ describe("navFor", () => {
   });
 
   it("shows nothing but the unguarded routes to an unresolved role", () => {
-    expect(hrefs(null)).toEqual(["/"]);
+    expect(hrefs(null)).toEqual(["/", "/products"]);
   });
 
   it("keeps warehouse staff out of the shop and vice versa", () => {

@@ -246,3 +246,23 @@ export interface ReceiptLineRow {
   lot_code: string | null;
   batch_id: string | null;
 }
+
+export interface AppSettingsRow {
+  company_name: string;
+  tin: string | null;
+  address: string | null;
+  phone: string | null;
+  currency: string;
+  expiry_alert_days: number;
+  ai_daily_budget_usd: MaskedMoney;
+}
+
+export interface TeamMemberRow {
+  id: string;
+  full_name: string;
+  email: string | null;
+  role: "owner" | "warehouse_staff" | "retail_staff";
+  status: string;
+  location_ids: string[];
+  created_at: string;
+}

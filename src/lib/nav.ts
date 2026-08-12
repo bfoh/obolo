@@ -1,5 +1,6 @@
 import {
   ArrowLeftRight,
+  Boxes,
   ClipboardCheck,
   Gauge,
   PackagePlus,
@@ -53,6 +54,8 @@ export const NAV_ITEMS: NavItem[] = [
     group: "stock",
   },
   { href: "/receive", label: "Receive", icon: PackagePlus, capability: "receive", group: "stock" },
+  // Everyone may look at the catalogue; only the owner may change a price.
+  { href: "/products", label: "Products", icon: Boxes, group: "stock" },
 
   {
     href: "/sales",
