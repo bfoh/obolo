@@ -612,6 +612,130 @@ async function runLedgerTests(db) {
   check("staff see null for margin", staffOrder.gross_profit, "null");
   await asUser(owner.id);
 
+  // --- stock counts --------------------------------------------------------
+  console.log("\nStock counts");
+
+  const countId = await one(`select public.start_count($1, 'full') as id`, [wh.id]);
+  check("owner can open a count", typeof countId.id, "string");
+
+  const frozenLines = await one(
+    "select count(*)::int as n from core.stock_count_lines where count_id = $1",
+    [countId.id],
+  );
+  check("the count snapshots what the system believes", frozenLines.n > 0, true);
+
+  // Everything stops moving here. Otherwise a variance cannot be told apart
+  // from a sale that happened while people were counting.
+  let frozenPost = "no error";
+  try {
+    await db.query("select public.post_movement('damage', $1, $2, 1, 'test')", [product.id, wh.id]);
+  } catch (error) {
+    frozenPost = error.message.includes("count") && error.message.includes("in progress")
+      ? "refused"
+      : error.message;
+  }
+  check("the location freezes while counting", frozenPost, "refused");
+
+  const systemQty = await one(
+    "select system_qty from core.stock_count_lines where count_id = $1 and product_id = $2",
+    [countId.id, product.id],
+  );
+  // Count 3 fewer than the system says.
+  const shortBy = Number(systemQty.system_qty) - 3;
+  await db.query(`select public.set_count_line($1, $2, $3, 'three bags missing')`, [
+    countId.id,
+    product.id,
+    shortBy,
+  ]);
+
+  const variance = await one(
+    "select variance_qty from core.stock_count_lines where count_id = $1 and product_id = $2",
+    [countId.id, product.id],
+  );
+  check("the variance is computed, not typed", variance.variance_qty, "-3.000");
+
+  await db.query("select public.submit_count($1)", [countId.id]);
+
+  // The person who counts must not be the person who accepts the loss.
+  await asUser(staff.id);
+  let staffPosts = "no error";
+  try {
+    await db.query("select public.post_count($1)", [countId.id]);
+  } catch (error) {
+    staffPosts = error.message.includes("only an owner") ? "refused" : error.message;
+  }
+  check("staff cannot post their own count", staffPosts, "refused");
+  await asUser(owner.id);
+
+  const before = await one(
+    "select qty_on_hand from core.stock_levels where product_id = $1 and location_id = $2",
+    [product.id, wh.id],
+  );
+  await db.query("select public.post_count($1)", [countId.id]);
+  const after = await one(
+    "select qty_on_hand from core.stock_levels where product_id = $1 and location_id = $2",
+    [product.id, wh.id],
+  );
+  check(
+    "posting the count writes the shortfall off",
+    Number(after.qty_on_hand),
+    Number(before.qty_on_hand) - 3,
+  );
+
+  const unlocked = await one("select count_lock_id from core.locations where id = $1", [wh.id]);
+  check("and releases the freeze", unlocked.count_lock_id, "null");
+
+  const countedIntegrity = await one("select count(*)::int as n from core.check_stock_integrity()");
+  check("stock still reconciles after a count", countedIntegrity.n, 0);
+
+  // --- returns -------------------------------------------------------------
+  console.log("\nReturns and write-offs");
+
+  const shopStock = await one(
+    "select qty_on_hand from core.stock_levels where product_id = $1 and location_id = $2",
+    [product.id, shop.id],
+  );
+
+  const ret = await one(`select public.create_return($1, null, $2, 'wrong size') as id`, [
+    customer.id,
+    shop.id,
+  ]);
+  await db.query(`select public.set_return_line($1, $2, 2, 'resalable', 50)`, [ret.id, product.id]);
+  await db.query(`select public.set_return_line($1, $2, 1, 'damaged', 50)`, [ret.id, product.id]);
+  await db.query("select public.post_return($1)", [ret.id]);
+
+  const afterReturn = await one(
+    "select qty_on_hand from core.stock_levels where product_id = $1 and location_id = $2",
+    [product.id, shop.id],
+  );
+  // Only the two resalable units come back; the damaged one is not stock.
+  check(
+    "resalable goods return to stock",
+    Number(afterReturn.qty_on_hand),
+    Number(shopStock.qty_on_hand) + 2,
+  );
+
+  const creditNote = await one("select amount from core.credit_notes order by issued_at desc limit 1");
+  check("the customer is credited for all three units", creditNote.amount, "150.00");
+
+  const damagedMovements = await one(
+    `select count(*)::int as n from core.stock_movements m
+      join core.return_lines rl on rl.id = m.return_line_id
+     where rl.condition = 'damaged'`,
+  );
+  check("damaged goods create no stock movement at all", damagedMovements.n, 0);
+
+  let unexplained = "no error";
+  try {
+    await db.query("select public.write_off_stock($1, $2, 1, '')", [product.id, shop.id]);
+  } catch (error) {
+    unexplained = error.message.includes("say what happened") ? "refused" : error.message;
+  }
+  check("a write-off must say what happened", unexplained, "refused");
+
+  const returnIntegrity = await one("select count(*)::int as n from core.check_stock_integrity()");
+  check("stock reconciles after returns", returnIntegrity.n, 0);
+
   // --- closed periods ------------------------------------------------------
   await db.query(
     "update core.accounting_periods set closed_at = now(), closed_by = $1 where closed_at is null",

@@ -352,3 +352,68 @@ export interface PaymentRow {
   is_reversed: boolean;
   received_by_name: string | null;
 }
+
+export interface StockCountRow {
+  id: string;
+  count_no: string;
+  location_id: string;
+  location_code: string;
+  location_name: string;
+  scope: "full" | "partial" | "cycle";
+  status: "counting" | "submitted" | "posted" | "cancelled";
+  frozen_at: string;
+  submitted_at: string | null;
+  posted_at: string | null;
+  variance_value: MaskedMoney;
+  notes: string | null;
+  line_count: number;
+  counted_count: number;
+  variance_count: number;
+  started_by_name: string | null;
+  submitted_by_name: string | null;
+}
+
+export interface StockCountLineRow {
+  id: string;
+  count_id: string;
+  product_id: string;
+  sku: string;
+  product_name: string;
+  base_unit: string;
+  system_qty: Qty;
+  counted_qty: Qty | null;
+  variance_qty: Qty;
+  variance_value: MaskedMoney;
+  note: string | null;
+  counted_at: string | null;
+}
+
+export interface ReturnRow {
+  id: string;
+  return_no: string;
+  customer_id: string | null;
+  customer_name: string | null;
+  order_id: string | null;
+  invoice_no: string | null;
+  location_id: string;
+  location_code: string;
+  status: "draft" | "posted" | "cancelled";
+  reason: string | null;
+  occurred_at: string;
+  posted_at: string | null;
+  credit_total: Money;
+  line_count: number;
+}
+
+export interface ReturnLineRow {
+  id: string;
+  return_id: string;
+  product_id: string;
+  sku: string;
+  product_name: string;
+  base_unit: string;
+  qty: Qty;
+  condition: "resalable" | "damaged";
+  unit_price: Money;
+  line_total: Money;
+}
