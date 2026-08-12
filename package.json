@@ -13,7 +13,8 @@
     "db:push": "supabase db push",
     "db:lint": "supabase db lint",
     "db:reset": "supabase db reset",
-    "db:verify": "node scripts/verify-migrations.mjs"
+    "db:verify": "node scripts/verify-migrations.mjs",
+    "db:push:direct": "node scripts/push-migrations.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",

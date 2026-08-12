@@ -1,6 +1,6 @@
 import { PackageSearch } from "lucide-react";
 import { notFound } from "next/navigation";
-import { getLocationByCode, getStockLevels } from "@/lib/data/stock";
+import { getLocationByCode, getLocationTotals, getStockLevels } from "@/lib/data/stock";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -26,13 +26,15 @@ export async function LocationStockView({
   // caller may access -- so a missing row here means "not yours", not "gone".
   if (!location) notFound();
 
-  const rows = await getStockLevels(location.id, search);
+  // Totals come from SQL, not from reducing `rows`: money crosses the wire as
+  // text so it stays exact, and summing it in JavaScript would make it float64
+  // again. The totals also cover the whole location rather than just the rows
+  // a search happens to have matched.
+  const [rows, totals] = await Promise.all([
+    getStockLevels(location.id, search),
+    getLocationTotals(location.id),
+  ]);
   const showsCost = can(user?.role, "cost");
-
-  const totalUnits = rows.reduce((sum, row) => sum + Number(row.qty_on_hand), 0);
-  const totalValue = showsCost
-    ? rows.reduce((sum, row) => sum + Number(row.total_cost_value ?? 0), 0)
-    : null;
 
   return (
     <>
@@ -43,18 +45,18 @@ export async function LocationStockView({
           <dl className="flex gap-6">
             <div>
               <dt className="micro">Products</dt>
-              <dd className="numeric mt-1 text-lg text-ink">{rows.length}</dd>
+              <dd className="numeric mt-1 text-lg text-ink">{totals.product_count}</dd>
             </div>
             <div>
               <dt className="micro">Units</dt>
-              <dd className="numeric mt-1 text-lg text-ink">{formatQty(totalUnits)}</dd>
+              <dd className="numeric mt-1 text-lg text-ink">{formatQty(totals.total_qty)}</dd>
             </div>
-            {isMasked(totalValue) ? null : (
+            {showsCost && !isMasked(totals.total_value) ? (
               <div>
                 <dt className="micro">Value</dt>
-                <dd className="numeric mt-1 text-lg text-ink">{money(totalValue)}</dd>
+                <dd className="numeric mt-1 text-lg text-ink">{money(totals.total_value)}</dd>
               </div>
-            )}
+            ) : null}
           </dl>
 
           <div className="w-full sm:w-72">

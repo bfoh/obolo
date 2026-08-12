@@ -1,6 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 import { bandOpacity, buildBatchColumn, type BatchInput } from "@/lib/batchColumn";
-import { daysUntil, formatDate, isMasked, money, qty as formatQty } from "@/lib/format";
+import { daysUntil, formatDate, isMasked, money, plural, qty as formatQty } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
@@ -41,8 +41,7 @@ export function BatchColumn({
           Batches
         </h3>
         <span className="code">
-          {column.batchCount} {column.batchCount === 1 ? "layer" : "layers"} ·{" "}
-          {formatQty(column.totalQty)} {unit}
+          {plural(column.batchCount, "layer")} · {formatQty(column.totalQty)} {unit}
         </span>
       </div>
 
@@ -51,7 +50,7 @@ export function BatchColumn({
         <div
           className="flex w-12 shrink-0 flex-col-reverse overflow-hidden border-2 border-line"
           role="img"
-          aria-label={`${column.batchCount} batches, oldest at the bottom, totalling ${formatQty(column.totalQty)} ${unit}`}
+          aria-label={`${plural(column.batchCount, "batch", "batches")}, oldest at the bottom, totalling ${formatQty(column.totalQty)} ${unit}`}
         >
           {column.bands.map((band) => (
             <div
@@ -83,7 +82,10 @@ export function BatchColumn({
                     <span className="numeric font-medium">{formatQty(band.qty)}</span>{" "}
                     <span className="text-ink-3">{unit}</span>
                     {band.isNext ? (
+                      // Leading space so a screen reader does not run this into
+                      // the unit as "60 bagNext out".
                       <span className="ml-2 align-middle font-display text-[10px] font-bold uppercase tracking-widest text-signal">
+                        {" "}
                         Next out
                       </span>
                     ) : null}

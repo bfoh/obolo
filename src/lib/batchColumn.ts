@@ -12,9 +12,9 @@
  * floor, and the remaining height is shared out in proportion -- so heights
  * stay comparable while nothing vanishes.
  *
- * Quantities are parsed to numbers here. That is safe and deliberate: these are
- * `numeric(14,3)` quantities used only to compute pixel heights, never money.
- * Cost stays a string and is only ever formatted.
+ * Quantities are treated as numbers here. That is safe and deliberate: they are
+ * `numeric(14,3)` values used only to compute pixel heights, never money. Cost
+ * stays a string all the way through and is only ever formatted.
  */
 
 /** Smallest share of the column any single band may occupy. */
@@ -23,7 +23,12 @@ const MIN_BAND_FRACTION = 0.04;
 export interface BatchInput {
   id: string;
   lot_code: string | null;
-  qty_remaining: string;
+  /**
+   * Quantities arrive from PostgREST as JSON numbers; the string form is
+   * accepted too so the same code works against a direct SQL client, which
+   * returns numeric as text.
+   */
+  qty_remaining: string | number;
   unit_cost: string | null;
   remaining_value: string | null;
   origin_received_at: string;
@@ -56,7 +61,7 @@ export interface BatchColumn {
   heightsAdjusted: boolean;
 }
 
-function toNumber(value: string): number {
+function toNumber(value: string | number): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
 }

@@ -85,7 +85,15 @@ end $$;
 
 -- ---------------------------------------------------------------------------
 -- Totals per location at a point in time. The dashboard's headline figures.
+--
+-- Dropped before creating, because CREATE OR REPLACE cannot change a
+-- function's return type. A later migration widens total_value to text, so
+-- replaying the whole sequence over an existing database would otherwise stop
+-- here. Replaying in order still ends in the correct state: this recreates the
+-- original shape and migration 23 supersedes it again.
 -- ---------------------------------------------------------------------------
+drop function if exists public.valuation_summary(timestamptz);
+
 create or replace function public.valuation_summary(p_at timestamptz default now())
 returns table (
   location_id   uuid,

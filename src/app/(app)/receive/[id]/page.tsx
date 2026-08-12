@@ -47,16 +47,10 @@ export default async function ReceiptPage({ params }: PageProps<"/receive/[id]">
               <dd className="numeric mt-1 text-sm text-ink">{receipt.waybill_no}</dd>
             </div>
           ) : null}
-          {isMasked(receipt.freight_total) ? null : (
+          {isMasked(receipt.charges_total) ? null : (
             <div>
               <dt className="micro">Charges</dt>
-              <dd className="numeric mt-1 text-sm text-ink">
-                {money(
-                  Number(receipt.freight_total ?? 0) +
-                    Number(receipt.duty_total ?? 0) +
-                    Number(receipt.other_total ?? 0),
-                )}
-              </dd>
+              <dd className="numeric mt-1 text-sm text-ink">{money(receipt.charges_total)}</dd>
             </div>
           )}
           {receipt.posted_at ? (

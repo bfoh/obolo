@@ -29,7 +29,6 @@ export const metadata: Metadata = {
     template: "%s · OBOLO",
   },
   description: "Warehouse stock and valuation.",
-  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     title: "OBOLO",

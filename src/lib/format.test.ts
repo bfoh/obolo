@@ -6,6 +6,7 @@ import {
   money,
   moneyCompact,
   percent,
+  plural,
   qty,
   qtyWithUnit,
 } from "./format";
@@ -143,5 +144,25 @@ describe("daysUntil", () => {
 
   it("returns null when there is no expiry", () => {
     expect(daysUntil(null, now)).toBe(null);
+  });
+});
+
+describe("plural", () => {
+  it("uses the singular for exactly one", () => {
+    expect(plural(1, "batch", "batches")).toBe("1 batch");
+    expect(plural(1, "product")).toBe("1 product");
+  });
+
+  it("uses the plural for anything else, including zero", () => {
+    expect(plural(0, "product")).toBe("0 products");
+    expect(plural(3, "product")).toBe("3 products");
+  });
+
+  it("takes an explicit plural for irregular words", () => {
+    expect(plural(2, "batch", "batches")).toBe("2 batches");
+  });
+
+  it("groups thousands", () => {
+    expect(plural(1200, "product")).toBe("1,200 products");
   });
 });

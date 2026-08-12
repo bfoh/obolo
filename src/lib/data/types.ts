@@ -11,14 +11,26 @@
  * non-nullable would let a component render `₵0.00` and claim the stock is
  * worthless.
  *
- * Postgres `numeric` arrives as a string to preserve precision. It stays a
- * string all the way to the formatter; nothing here is ever parsed into a
- * float and added up.
+ * WIRE FORMAT: money is text and quantities are numbers, which is not the
+ * default and is not an accident -- see migration 23. Money stays a string all
+ * the way to the formatter; nothing here is ever parsed into a float and summed.
+ * Totals come from SQL.
  */
 
-export type Numeric = string;
+/**
+ * Money and cost. Cast to text in the view (migration 23) so the exact decimal
+ * survives the wire -- PostgREST serialises `numeric` as a JSON number, which
+ * becomes a float64 and stops agreeing with the ledger once you sum it.
+ */
+export type Money = string;
 /** A cost value: null when the caller is not an owner. */
-export type MaskedNumeric = string | null;
+export type MaskedMoney = string | null;
+/**
+ * Quantities stay JSON numbers. numeric(14,3) scaled to an integer tops out
+ * around 1e14, well inside float64's exact range, and they must remain numeric
+ * so PostgREST can still filter and order on them.
+ */
+export type Qty = number;
 
 export interface LocationRow {
   id: string;
@@ -33,8 +45,8 @@ export interface ValuationSummaryRow {
   location_code: string;
   location_name: string;
   location_kind: "warehouse" | "retail" | "in_transit";
-  qty_on_hand: Numeric;
-  total_value: MaskedNumeric;
+  qty_on_hand: Qty;
+  total_value: MaskedMoney;
   product_count: number;
 }
 
@@ -46,10 +58,10 @@ export interface StockLevelRow {
   location_id: string;
   location_code: string;
   location_kind: "warehouse" | "retail" | "in_transit";
-  qty_on_hand: Numeric;
-  total_cost_value: MaskedNumeric;
-  avg_unit_cost: MaskedNumeric;
-  reorder_point: Numeric | null;
+  qty_on_hand: Qty;
+  total_cost_value: MaskedMoney;
+  avg_unit_cost: MaskedMoney;
+  reorder_point: Qty | null;
   updated_at: string;
 }
 
@@ -61,10 +73,10 @@ export interface StockBatchRow {
   location_id: string;
   location_code: string;
   lot_code: string | null;
-  qty_received: Numeric;
-  qty_remaining: Numeric;
-  unit_cost: MaskedNumeric;
-  remaining_value: MaskedNumeric;
+  qty_received: Qty;
+  qty_remaining: Qty;
+  unit_cost: MaskedMoney;
+  remaining_value: MaskedMoney;
   origin_received_at: string;
   received_at: string;
   expiry_date: string | null;
@@ -95,9 +107,9 @@ export interface StockMovementRow {
   product_name: string;
   location_id: string;
   location_code: string;
-  qty_delta: Numeric;
-  value_delta: MaskedNumeric;
-  unit_price: Numeric | null;
+  qty_delta: Qty;
+  value_delta: MaskedMoney;
+  unit_price: Money | null;
   movement_group_id: string;
   reverses_movement_id: string | null;
   is_reversed: boolean;
@@ -116,13 +128,13 @@ export interface ProductRow {
   category_name: string | null;
   base_unit: string;
   pack_unit: string | null;
-  units_per_pack: Numeric | null;
-  wholesale_price: Numeric | null;
-  retail_price: Numeric | null;
-  last_cost: MaskedNumeric;
-  avg_cost: MaskedNumeric;
-  reorder_point: Numeric | null;
-  reorder_qty: Numeric | null;
+  units_per_pack: Qty | null;
+  wholesale_price: Money | null;
+  retail_price: Money | null;
+  last_cost: MaskedMoney;
+  avg_cost: MaskedMoney;
+  reorder_point: Qty | null;
+  reorder_qty: Qty | null;
   track_expiry: boolean;
   shelf_life_days: number | null;
   is_active: boolean;
@@ -134,9 +146,9 @@ export interface LowStockRow {
   product_name: string;
   location_id: string;
   location_code: string;
-  qty_on_hand: Numeric;
-  reorder_point: Numeric;
-  reorder_qty: Numeric | null;
+  qty_on_hand: Qty;
+  reorder_point: Qty;
+  reorder_qty: Qty | null;
 }
 
 export interface ExpiringRow {
@@ -147,8 +159,8 @@ export interface ExpiringRow {
   location_id: string;
   location_code: string;
   lot_code: string | null;
-  qty_remaining: Numeric;
-  at_risk_value: MaskedNumeric;
+  qty_remaining: Qty;
+  at_risk_value: MaskedMoney;
   expiry_date: string;
   days_remaining: number;
 }
@@ -174,10 +186,10 @@ export interface TransferLineRow {
   sku: string;
   product_name: string;
   base_unit: string;
-  qty_requested: Numeric;
-  qty_dispatched: Numeric;
-  qty_received: Numeric;
-  qty_in_transit: Numeric;
+  qty_requested: Qty;
+  qty_dispatched: Qty;
+  qty_received: Qty;
+  qty_in_transit: Qty;
 }
 
 export interface SupplierRow {
@@ -203,10 +215,21 @@ export interface ReceiptRow {
   status: "draft" | "posted" | "reversed";
   waybill_no: string | null;
   received_at: string;
-  freight_total: MaskedNumeric;
-  duty_total: MaskedNumeric;
-  other_total: MaskedNumeric;
+  freight_total: MaskedMoney;
+  duty_total: MaskedMoney;
+  other_total: MaskedMoney;
+  /** Summed in SQL, so the draft screen never adds up lines in the browser. */
+  charges_total: MaskedMoney;
+  goods_total: MaskedMoney;
+  landed_total: MaskedMoney;
+  line_count: number;
   posted_at: string | null;
+}
+
+export interface LocationTotalsRow {
+  product_count: number;
+  total_qty: Qty;
+  total_value: MaskedMoney;
 }
 
 export interface ReceiptLineRow {
@@ -215,10 +238,10 @@ export interface ReceiptLineRow {
   product_id: string;
   sku: string;
   product_name: string;
-  qty_received: Numeric;
-  invoice_unit_cost: MaskedNumeric;
-  allocated_charges: MaskedNumeric;
-  landed_unit_cost: MaskedNumeric;
+  qty_received: Qty;
+  invoice_unit_cost: MaskedMoney;
+  allocated_charges: MaskedMoney;
+  landed_unit_cost: MaskedMoney;
   expiry_date: string | null;
   lot_code: string | null;
   batch_id: string | null;

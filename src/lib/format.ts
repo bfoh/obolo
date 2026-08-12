@@ -1,9 +1,12 @@
 /**
  * Display formatting for money, quantities and identifiers.
  *
- * PostgREST returns Postgres `numeric` as a JSON **string** so that values
- * wider than a float64 survive the wire. Every function here therefore accepts
- * `string | number | null` and treats the string form as authoritative.
+ * PostgREST serialises Postgres `numeric` as a JSON **number**, which every
+ * parser turns into a float64. That is not good enough for money, so every
+ * money and cost column is cast to text in the views (migration 23) and arrives
+ * here as a string carrying its exact decimal value. Quantities are left as
+ * numbers, which is safe at `numeric(14,3)` and keeps them filterable and
+ * sortable through PostgREST.
  *
  * Rule for this codebase: money arithmetic never happens in TypeScript. All
  * summing, allocation and valuation is done in SQL against `numeric`, and the
@@ -75,6 +78,18 @@ export function qty(value: Numeric, fallback = "—"): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 3,
   });
+}
+
+/**
+ * Counted noun, e.g. "1 batch" / "3 batches".
+ *
+ * Interface copy is read by people, and "1 products" is the kind of detail that
+ * makes an otherwise careful screen look unfinished. Irregular plurals are
+ * passed explicitly rather than guessed.
+ */
+export function plural(count: number, singular: string, pluralForm?: string): string {
+  const word = count === 1 ? singular : (pluralForm ?? `${singular}s`);
+  return `${count.toLocaleString("en-GH")} ${word}`;
 }
 
 /** Quantity plus its unit, e.g. "12 cartons". Unit is not pluralised blindly. */

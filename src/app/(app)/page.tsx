@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ValueTile } from "@/components/valuation/ValueTile";
 import { Odometer } from "@/components/ui/Odometer";
-import { formatDateTime, isMasked, money, qty as formatQty } from "@/lib/format";
+import { formatDateTime, isMasked, money, plural, qty as formatQty } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Valuation" };
 
@@ -47,7 +47,7 @@ export default async function ValuationPage() {
             </p>
             <p className="mt-3 text-sm text-ink-3">
               <span className="numeric">{formatQty(warehouse.qty_on_hand)}</span> units across{" "}
-              <span className="numeric">{warehouse.product_count}</span> products
+              <span className="numeric">{plural(warehouse.product_count, "product")}</span>
             </p>
           </section>
         ) : null}

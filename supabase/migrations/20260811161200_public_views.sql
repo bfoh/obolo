@@ -22,6 +22,24 @@
 --   Explicit predicates  because a definer view bypasses RLS on its base
 --     tables. Location scoping lives in the view, not in a policy it skips.
 
+-- Dropped before creating, for the same reason as valuation_summary: a later
+-- migration retypes several of these columns from numeric to text, and CREATE
+-- OR REPLACE VIEW cannot change a column's type. Replaying the sequence in
+-- order still ends correctly -- this recreates the original shape and migration
+-- 23 supersedes it.
+drop view if exists public.v_locations;
+drop view if exists public.v_products;
+drop view if exists public.v_stock_levels;
+drop view if exists public.v_stock_batches;
+drop view if exists public.v_stock_movements;
+drop view if exists public.v_low_stock;
+drop view if exists public.v_expiring_soon;
+drop view if exists public.v_transfers;
+drop view if exists public.v_transfer_lines;
+drop view if exists public.v_suppliers;
+drop view if exists public.v_receipts;
+drop view if exists public.v_receipt_lines;
+
 -- ---------------------------------------------------------------------------
 create or replace view public.v_locations
   with (security_barrier = true, security_invoker = false) as

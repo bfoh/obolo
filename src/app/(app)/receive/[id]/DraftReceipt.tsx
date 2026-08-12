@@ -42,14 +42,9 @@ export function DraftReceipt({
     error: null,
   });
 
-  const goodsValue = lines.reduce(
-    (sum, line) => sum + Number(line.qty_received) * Number(line.invoice_unit_cost ?? 0),
-    0,
-  );
-  const charges =
-    Number(receipt.freight_total ?? 0) +
-    Number(receipt.duty_total ?? 0) +
-    Number(receipt.other_total ?? 0);
+  // Totals come from v_receipts, summed in SQL. Multiplying and adding these
+  // in the browser would turn exact decimals into float64 and print a landed
+  // total that disagrees with what posting will actually record.
 
   return (
     <>
@@ -196,16 +191,16 @@ export function DraftReceipt({
             <dl className="mt-3 flex flex-wrap gap-x-8 gap-y-2">
               <div>
                 <dt className="micro">Goods</dt>
-                <dd className="numeric mt-1 text-sm text-ink">{money(goodsValue)}</dd>
+                <dd className="numeric mt-1 text-sm text-ink">{money(receipt.goods_total)}</dd>
               </div>
               <div>
                 <dt className="micro">Charges</dt>
-                <dd className="numeric mt-1 text-sm text-ink">{money(charges)}</dd>
+                <dd className="numeric mt-1 text-sm text-ink">{money(receipt.charges_total)}</dd>
               </div>
               <div>
                 <dt className="micro">Total landed</dt>
                 <dd className="numeric mt-1 text-sm font-medium text-ink">
-                  {money(goodsValue + charges)}
+                  {money(receipt.landed_total)}
                 </dd>
               </div>
             </dl>

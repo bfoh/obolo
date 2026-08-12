@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type {
   ExpiringRow,
   LocationRow,
+  LocationTotalsRow,
   LowStockRow,
   ProductRow,
   StockBatchRow,
@@ -39,6 +40,26 @@ export async function getValuationSummary(at?: Date): Promise<ValuationSummaryRo
     p_at: (at ?? new Date()).toISOString(),
   });
   return unwrap<ValuationSummaryRow[]>(data, error, "valuation");
+}
+
+/**
+ * Totals for one location.
+ *
+ * Summed in SQL rather than by reducing the rows in JavaScript: money crosses
+ * the wire as text precisely so it is not float64, and adding it up in the
+ * browser would throw that away.
+ */
+export async function getLocationTotals(locationId: string): Promise<LocationTotalsRow> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .rpc("location_stock_totals", { p_location_id: locationId })
+    .single();
+
+  if (error || !data) {
+    console.error(`[data] location totals: ${error?.message}`);
+    return { product_count: 0, total_qty: 0, total_value: null };
+  }
+  return data as LocationTotalsRow;
 }
 
 export async function getLocations(): Promise<LocationRow[]> {
