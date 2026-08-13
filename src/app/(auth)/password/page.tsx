@@ -24,8 +24,11 @@ export default async function PasswordPage() {
   return (
     <main className="flex min-h-dvh items-center justify-center bg-surface px-5 py-12">
       <div className="w-full max-w-sm">
-        <div className="mb-8">
-          <div className="flex items-center gap-3.5">
+        {/* Matches the sign-in page: the two screens sit back to back when
+            someone is sent here on their first sign-in, so the mark must not
+            jump between them. */}
+        <div className="mb-8 text-center">
+          <div className="flex items-center justify-center gap-3.5">
             <GyeNyame className="h-12 w-auto shrink-0 text-ink" title="Gye Nyame" />
             <h1 className="font-display text-5xl font-extrabold tracking-tight text-ink">OBOLO</h1>
           </div>
