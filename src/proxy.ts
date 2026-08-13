@@ -12,7 +12,11 @@ import { NextResponse, type NextRequest } from "next/server";
  * inside the posting RPCs -- so a request that slips past this file still
  * cannot read cost or move stock.
  */
-const PUBLIC_ROUTES = ["/login", "/auth"];
+// `/offline` is public because the service worker precaches it and serves it
+// when a navigation cannot reach the server. Bouncing it to /login would mean
+// the offline page only worked for people who were already signed in, which is
+// the opposite of when it is needed.
+const PUBLIC_ROUTES = ["/login", "/auth", "/offline"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
