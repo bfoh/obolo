@@ -1,7 +1,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
-import { isOwner } from "@/lib/permissions";
+import { hasFullAccess } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 export const maxDuration = 120;
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   const user = await getCurrentUser();
   // Reading costs off a photograph is an owner's job -- the whole point is that
   // the numbers land in the valuation.
-  if (!user || !isOwner(user.role)) {
+  if (!user || !hasFullAccess(user.role)) {
     return Response.json({ error: "Only an owner can read a delivery note." }, { status: 403 });
   }
 

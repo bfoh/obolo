@@ -5,6 +5,5 @@
       "path": "/api/insights",
       "schedule": "0 4 * * *"
     }
-  ],
-  "installCommand": "npm install --omit=optional"
+  ]
 }

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getCount, getCountLines } from "@/lib/data/counts";
 import { getCurrentUser } from "@/lib/auth";
-import { can, isOwner } from "@/lib/permissions";
+import { can, hasFullAccess } from "@/lib/permissions";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { CountSheet } from "./CountSheet";
@@ -26,7 +26,7 @@ export default async function CountPage({ params }: PageProps<"/counts/[id]">) {
   if (!count) notFound();
 
   const lines = await getCountLines(id);
-  const owner = isOwner(user?.role);
+  const owner = hasFullAccess(user?.role);
   const canCount = can(user?.role, "countSubmit");
 
   return (

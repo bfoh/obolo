@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { can, capabilitiesFor, isOwner, type Role } from "./permissions";
+import {
+  can,
+  canManageMember,
+  capabilitiesFor,
+  grantableRoles,
+  hasFullAccess,
+  isOwner,
+  type Role,
+} from "./permissions";
 
 const STAFF_ROLES: Role[] = ["warehouse_staff", "retail_staff"];
 
@@ -75,10 +83,90 @@ describe("can", () => {
   });
 });
 
+// An admin is an owner for every capability question. This is asserted rather
+// than assumed, because the two are separate values in the enum and a matrix
+// written role by role would drift apart one line at a time.
+describe("admin", () => {
+  it("holds exactly the capabilities an owner holds, and no others", () => {
+    expect(capabilitiesFor("admin")).toEqual(capabilitiesFor("owner"));
+  });
+
+  it("sees cost, because it is standing in for the owner", () => {
+    expect(can("admin", "cost")).toBe(true);
+    expect(can("admin", "reports")).toBe(true);
+    expect(can("admin", "manageUsers")).toBe(true);
+    expect(can("admin", "countApprove")).toBe(true);
+  });
+});
+
+describe("hasFullAccess", () => {
+  it("covers the owner and the admin standing in for one", () => {
+    expect(hasFullAccess("owner")).toBe(true);
+    expect(hasFullAccess("admin")).toBe(true);
+  });
+
+  it("covers no staff role and no unresolved role", () => {
+    for (const role of STAFF_ROLES) expect(hasFullAccess(role)).toBe(false);
+    expect(hasFullAccess(null)).toBe(false);
+    expect(hasFullAccess(undefined)).toBe(false);
+  });
+});
+
 describe("isOwner", () => {
-  it("recognises only the owner", () => {
+  // Narrower than hasFullAccess on purpose: it answers "may this person touch
+  // an owner account", which is the one thing an admin may not do.
+  it("recognises only the owner, and not an admin", () => {
     expect(isOwner("owner")).toBe(true);
+    expect(isOwner("admin")).toBe(false);
     expect(isOwner("warehouse_staff")).toBe(false);
     expect(isOwner(null)).toBe(false);
+  });
+});
+
+describe("grantableRoles", () => {
+  it("lets an owner hand out anything, including owner", () => {
+    expect(grantableRoles("owner")).toContain("owner");
+    expect(grantableRoles("owner")).toContain("admin");
+  });
+
+  // The whole point of keeping admin and owner apart: an added administrator
+  // must not be able to manufacture a second owner.
+  it("never lets an admin hand out owner", () => {
+    expect(grantableRoles("admin")).not.toContain("owner");
+    expect(grantableRoles("admin")).toEqual(["admin", "warehouse_staff", "retail_staff"]);
+  });
+
+  it("gives staff and unresolved roles nothing to hand out", () => {
+    for (const role of STAFF_ROLES) expect(grantableRoles(role)).toEqual([]);
+    expect(grantableRoles(null)).toEqual([]);
+  });
+});
+
+describe("canManageMember", () => {
+  it("lets an owner manage anyone but themselves", () => {
+    expect(canManageMember("owner", "admin", false)).toBe(true);
+    expect(canManageMember("owner", "owner", false)).toBe(true);
+    expect(canManageMember("owner", "owner", true)).toBe(false);
+  });
+
+  it("lets an admin manage staff and other admins", () => {
+    expect(canManageMember("admin", "warehouse_staff", false)).toBe(true);
+    expect(canManageMember("admin", "admin", false)).toBe(true);
+  });
+
+  it("stops an admin reaching an owner's account", () => {
+    expect(canManageMember("admin", "owner", false)).toBe(false);
+  });
+
+  // Suspending or demoting yourself is the one mistake nobody can undo alone.
+  it("stops anyone editing their own row", () => {
+    expect(canManageMember("admin", "admin", true)).toBe(false);
+  });
+
+  it("gives staff no management at all", () => {
+    for (const role of STAFF_ROLES) {
+      expect(canManageMember(role, "retail_staff", false)).toBe(false);
+    }
+    expect(canManageMember(null, "retail_staff", false)).toBe(false);
   });
 });

@@ -5,7 +5,7 @@ import { getReceipts } from "@/lib/data/receipts";
 import { searchProducts } from "@/lib/data/stock";
 import { DocumentIntake } from "@/components/scan/DocumentIntake";
 import { getCurrentUser } from "@/lib/auth";
-import { isOwner } from "@/lib/permissions";
+import { hasFullAccess } from "@/lib/permissions";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusBadge, statusTone } from "@/components/ui/StatusBadge";
@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 export default async function ReceivePage() {
   const [user, receipts] = await Promise.all([getCurrentUser(), getReceipts()]);
   // Opening a delivery means entering costs, which is the owner's job.
-  const canOpen = isOwner(user?.role);
+  const canOpen = hasFullAccess(user?.role);
   const products = canOpen ? await searchProducts("", 300) : [];
 
   return (

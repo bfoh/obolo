@@ -9,6 +9,11 @@ describe("navFor", () => {
     expect(hrefs("owner")).toHaveLength(NAV_ITEMS.length);
   });
 
+  it("gives an admin the same destinations as the owner, settings included", () => {
+    expect(hrefs("admin")).toEqual(hrefs("owner"));
+    expect(hrefs("admin")).toContain("/settings");
+  });
+
   it("shows nothing but the unguarded routes to an unresolved role", () => {
     expect(hrefs(null)).toEqual(["/", "/products", "/assistant"]);
   });

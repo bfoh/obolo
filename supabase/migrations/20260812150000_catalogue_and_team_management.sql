@@ -232,6 +232,13 @@ begin
   end if;
 end $$;
 
+-- Dropped before creating, because CREATE OR REPLACE cannot add a column to a
+-- function's return type. Migration 42 adds must_change_password, so replaying
+-- the whole sequence over an existing database would otherwise stop here.
+-- Replaying in order still ends in the correct state: this recreates the
+-- original shape and migration 42 supersedes it again.
+drop function if exists public.team();
+
 create or replace function public.team()
 returns table (
   id           uuid,

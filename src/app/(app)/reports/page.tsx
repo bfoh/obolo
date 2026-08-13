@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth";
-import { isOwner } from "@/lib/permissions";
+import { hasFullAccess } from "@/lib/permissions";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { AskReports } from "./AskReports";
 
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ReportsPage() {
   const user = await getCurrentUser();
-  if (!isOwner(user?.role)) redirect("/");
+  if (!hasFullAccess(user?.role)) redirect("/");
 
   return (
     <>
