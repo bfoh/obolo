@@ -18,11 +18,18 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#e4e6e1",
     theme_color: "#14171a",
     icons: [
+      // The vector first, so anything that can scale it does.
+      { src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
+      { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      // Maskable is a different drawing, not the same one re-tagged: Android
+      // crops to a circle inscribed in the middle 80%, so the glyph is set much
+      // smaller inside a full-bleed square rather than a disc that gets shaved.
       {
-        src: "/icon.svg",
-        sizes: "any",
-        type: "image/svg+xml",
-        purpose: "any",
+        src: "/icon-maskable-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
       },
     ],
   };

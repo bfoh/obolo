@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { navGroupsFor } from "@/lib/nav";
 import type { Role } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+import { GyeNyame } from "@/components/brand/GyeNyame";
 import { ThemeToggle } from "./ThemeToggle";
 import { SignOutButton } from "./SignOutButton";
 
@@ -40,8 +41,14 @@ export function SideRail({
       className="hidden md:flex w-60 shrink-0 flex-col bg-bitumen-900 dark:bg-bitumen-950 border-r-2 border-bitumen-700"
     >
       <div className="px-5 py-5 border-b-2 border-bitumen-700">
-        <span className="font-display text-2xl font-extrabold tracking-tight text-concrete-50">
-          OBOLO
+        <span className="flex items-center gap-2.5">
+          {/* Concrete rather than an accent: every accent in this palette
+              already means something about stock, and the mark reads as one
+              unit with the wordmark this way. */}
+          <GyeNyame className="h-7 w-auto shrink-0 text-concrete-50" />
+          <span className="font-display text-2xl font-extrabold tracking-tight text-concrete-50">
+            OBOLO
+          </span>
         </span>
         <span className="code mt-1 block truncate text-concrete-400" title={companyName}>
           {companyName}

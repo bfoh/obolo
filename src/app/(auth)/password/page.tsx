@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth";
+import { GyeNyame } from "@/components/brand/GyeNyame";
 import { PasswordForm } from "./PasswordForm";
 
 export const metadata: Metadata = { title: "Password" };
@@ -24,8 +25,11 @@ export default async function PasswordPage() {
     <main className="flex min-h-dvh items-center justify-center bg-surface px-5 py-12">
       <div className="w-full max-w-sm">
         <div className="mb-8">
-          <h1 className="font-display text-5xl font-extrabold tracking-tight text-ink">OBOLO</h1>
-          <p className="micro mt-2">{user.email ?? user.fullName}</p>
+          <div className="flex items-center gap-3.5">
+            <GyeNyame className="h-12 w-auto shrink-0 text-ink" title="Gye Nyame" />
+            <h1 className="font-display text-5xl font-extrabold tracking-tight text-ink">OBOLO</h1>
+          </div>
+          <p className="micro mt-3">{user.email ?? user.fullName}</p>
         </div>
 
         <div className="rule bg-panel p-6">
