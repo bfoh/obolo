@@ -15,6 +15,21 @@ import { NextResponse, type NextRequest } from "next/server";
 const PUBLIC_ROUTES = ["/login", "/auth"];
 
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // API routes authenticate themselves -- some by session, the scheduled ones
+  // by a shared secret because they run with no user at all. Redirecting them
+  // to an HTML login page is a nonsense reply to a machine, and it silently
+  // turns "unauthorised" into "200 OK with a login form".
+  //
+  // Returned BEFORE the client is built, because getUser() below is a network
+  // call to Supabase. This check used to sit after it, so every API request --
+  // including the nightly cron -- paid a full auth round trip and then threw
+  // the answer away.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -41,16 +56,6 @@ export async function proxy(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const { pathname } = request.nextUrl;
-
-  // API routes authenticate themselves -- some by session, the scheduled ones
-  // by a shared secret because they run with no user at all. Redirecting them
-  // to an HTML login page is a nonsense reply to a machine, and it silently
-  // turns "unauthorised" into "200 OK with a login form".
-  if (pathname.startsWith("/api/")) {
-    return response;
-  }
 
   const isPublic = PUBLIC_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`),

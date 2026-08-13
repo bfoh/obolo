@@ -11,7 +11,13 @@ async function getCompanyName(): Promise<string> {
 }
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
-  const user = await getCurrentUser();
+  // Fetched together, not one after the other. The company name does not depend
+  // on the user, but it used to be awaited after them, so it added a whole
+  // round trip to the critical path of every page -- and because a layout's
+  // awaits resolve before its children render, every page's own queries waited
+  // behind it. getCompanyName swallows its errors and falls back, so running it
+  // for a caller who turns out to be signed out costs nothing.
+  const [user, companyName] = await Promise.all([getCurrentUser(), getCompanyName()]);
 
   // proxy.ts already bounces anonymous requests, but a signed-in auth user with
   // no active app_users row reaches here. They have an account and no access,
@@ -26,8 +32,6 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   if (user.mustChangePassword) {
     redirect("/password");
   }
-
-  const companyName = await getCompanyName();
 
   return (
     <div className="flex min-h-dvh bg-surface">

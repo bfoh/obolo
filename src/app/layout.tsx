@@ -12,25 +12,29 @@ import "./globals.css";
  * the files are served from the same origin behind the same cache headers.
  *
  * Latin subset only; these are the weights the design system actually uses.
+ *
+ * Archivo and Plex Sans are VARIABLE fonts -- one file each, carrying an `fvar`
+ * axis, declared with a weight RANGE so the browser interpolates along it.
+ *
+ * They were previously declared three times apiece, once per weight, pointing at
+ * three copies of the same file. That rendered correctly -- a variable face
+ * pinned to 600, 700 and 800 gives three real weights -- but it shipped the same
+ * bytes under three URLs, all of them `preload`ed, on every page. 157 KB of the
+ * 280 KB font payload was the same two files downloaded twice more each. A range
+ * gets identical rendering from one download.
+ *
+ * Plex Mono is genuinely three static faces and stays as it was.
  */
 const archivo = localFont({
   variable: "--font-archivo",
   display: "swap",
-  src: [
-    { path: "./fonts/Archivo-600.woff2", weight: "600", style: "normal" },
-    { path: "./fonts/Archivo-700.woff2", weight: "700", style: "normal" },
-    { path: "./fonts/Archivo-800.woff2", weight: "800", style: "normal" },
-  ],
+  src: [{ path: "./fonts/Archivo-var.woff2", weight: "600 800", style: "normal" }],
 });
 
 const plexSans = localFont({
   variable: "--font-plex-sans",
   display: "swap",
-  src: [
-    { path: "./fonts/IBMPlexSans-400.woff2", weight: "400", style: "normal" },
-    { path: "./fonts/IBMPlexSans-500.woff2", weight: "500", style: "normal" },
-    { path: "./fonts/IBMPlexSans-600.woff2", weight: "600", style: "normal" },
-  ],
+  src: [{ path: "./fonts/IBMPlexSans-var.woff2", weight: "400 600", style: "normal" }],
 });
 
 const plexMono = localFont({

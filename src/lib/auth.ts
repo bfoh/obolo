@@ -30,11 +30,24 @@ export interface CurrentUser {
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-
+  // Straight to me(), with no auth.getUser() ahead of it.
+  //
+  // That call used to sit here as a guard, and it cost a full network round
+  // trip to the Auth server on every render -- the second of two, because
+  // proxy.ts already makes the same call on the same request. It bought
+  // nothing that me() does not already provide:
+  //
+  //   * me() derives identity from auth.uid(), which PostgREST populates only
+  //     from a JWT whose signature and expiry it has verified. A missing,
+  //     forged or expired token yields a null uid and therefore no rows.
+  //   * me() additionally requires `status = 'active'`, so a suspended account
+  //     resolves to null here even while its token is still valid.
+  //   * core.app_users is FK'd to auth.users ON DELETE CASCADE, so an account
+  //     deleted upstream has no row to return.
+  //
+  // proxy.ts still calls getUser() once per page request, which is what
+  // revalidates against the Auth server and rotates the cookies. This removes
+  // the duplicate, not the check.
   const { data, error } = await supabase.rpc("me").single();
   if (error || !data) return null;
 
