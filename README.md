@@ -59,6 +59,20 @@ Staff never see cost, margin, or stock value anywhere in the app. Roles resolve 
 
 `src/lib/permissions.ts` mirrors this for the UI: `can()` collapses `admin` onto `owner` rather than carrying its own column in the matrix, so the two cannot drift apart one capability at a time. Use `hasFullAccess()` to gate a screen; `isOwner()` is narrower and is only for deciding who may touch an owner account.
 
+#### Passwords
+
+Nobody keeps a password somebody else chose.
+
+An owner or admin sets a starting password when they add someone. `core.app_users.must_change_password` is set on the way in, and the app layout redirects to `/password` on every request until the person clears it by choosing their own — so it is a gate, not a prompt to dismiss. The database never sees a password; GoTrue holds it, and `set_password_changed()` only records that the person has now picked one.
+
+Changing your own password verifies the current one first, by signing in with it. Supabase's `updateUser({ password })` trusts the session alone, and these are shared devices on a warehouse floor.
+
+Forgotten passwords are reset by an owner or admin from the team screen — no SMTP, no deliverability, no custom domain, and it works for staff with no practical email access. "Reset" generates a temporary password from an alphabet with no `0/O` or `1/l/I` (it gets read aloud), shows it exactly once, and re-arms the flag.
+
+The order of operations in that reset is the security property: `require_password_change()` runs **first**, so an admin reaching for an owner is refused before the Auth admin API is touched. Reversed, the refusal would arrive after the password had already changed, and resetting would be the way around every other guard on owner accounts.
+
+Adding an email-based "Forgot password?" later needs no rework here — it would set the same flag through the same function, with a Resend transport behind a custom domain.
+
 #### The system administrator
 
 A standing break-glass `admin` account, so whoever maintains the deployment can look at a problem without borrowing the owner's password.

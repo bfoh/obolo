@@ -69,7 +69,15 @@ grant execute on function public.can_access_location(uuid) to authenticated, ser
 -- `core` is not served by PostgREST, so this is how the app learns who it is
 -- talking to. Takes no arguments by design: a SECURITY DEFINER function that
 -- accepts a user id lets any authenticated caller read anyone else's profile.
+--
+-- Dropped before creating, because CREATE OR REPLACE cannot add a column to a
+-- function's return type. Migration 42 adds must_change_password, so replaying
+-- the whole sequence over an existing database would otherwise stop here.
+-- Replaying in order still ends in the correct state: this recreates the
+-- original shape and migration 42 supersedes it again.
 -- ---------------------------------------------------------------------------
+drop function if exists public.me();
+
 create or replace function public.me()
 returns table (
   id           uuid,

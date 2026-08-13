@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
 import { grantableRoles, hasFullAccess, type Role } from "@/lib/permissions";
+import { generateTemporaryPassword } from "@/lib/password";
 
 export interface ActionState {
   error: string | null;
@@ -81,14 +82,21 @@ export async function addTeamMember(_prev: ActionState, formData: FormData): Pro
   });
 
   let userId = created?.user?.id;
+  let reusedAccount = false;
 
   if (authError) {
     // Already has an account: reuse it rather than failing, so a person who
     // once worked here can be given a role again.
+    //
+    // Their password is deliberately NOT replaced with the one just typed.
+    // Doing so would make re-adding an address a way to seize the account
+    // behind it -- including an owner's, before add_team_member below ever
+    // gets to refuse. Resetting a password has its own guarded path.
     const { data: list } = await admin.auth.admin.listUsers();
     const existing = list?.users?.find((u) => u.email?.toLowerCase() === email);
     if (!existing) return { error: readable(authError.message) };
     userId = existing.id;
+    reusedAccount = true;
   }
 
   if (!userId) return { error: "Could not create that account." };
@@ -105,7 +113,52 @@ export async function addTeamMember(_prev: ActionState, formData: FormData): Pro
   if (error) return { error: readable(error.message) };
 
   revalidatePath("/settings");
-  return { error: null, ok: true, notice: `${fullName} can now sign in.` };
+  return {
+    error: null,
+    ok: true,
+    notice: reusedAccount
+      ? `${fullName} already had an account, so their existing password still works. Use “Reset password” if they need a new one.`
+      : `${fullName} can now sign in. They will be asked to choose their own password.`,
+  };
+}
+
+/**
+ * Gives a teammate a new temporary password, shown once.
+ *
+ * THE ORDER OF THESE TWO CALLS IS THE SECURITY PROPERTY. The database check
+ * runs first, so an admin reaching for an owner is refused before the Auth
+ * admin API is touched. Doing it the other way round would mean the password
+ * was already changed by the time the refusal arrived, and resetting a password
+ * would be the way around every other guard on owner accounts.
+ */
+export async function resetMemberPassword(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const me = await getCurrentUser();
+  if (!hasFullAccess(me?.role)) {
+    return { error: "Only an owner or admin can reset a password." };
+  }
+
+  const userId = String(formData.get("user_id") ?? "");
+  if (!userId) return { error: "That team member could not be found." };
+
+  // 1. Permission, and re-arm the must-change flag. Refuses an admin reaching
+  //    for an owner, and refuses resetting your own password here.
+  const supabase = await createClient();
+  const { error: guardError } = await supabase.rpc("require_password_change", {
+    p_user_id: userId,
+  });
+  if (guardError) return { error: readable(guardError.message) };
+
+  // 2. Only now is the password actually replaced.
+  const password = generateTemporaryPassword();
+  const admin = createServiceRoleClient();
+  const { error: authError } = await admin.auth.admin.updateUserById(userId, { password });
+  if (authError) return { error: readable(authError.message) };
+
+  revalidatePath("/settings");
+  return { error: null, ok: true, notice: password };
 }
 
 /**

@@ -1002,6 +1002,84 @@ async function runLedgerTests(db) {
   }
   check("and refuses to demote an owner into it", provisionOwner, "refused");
 
+  // --- password lifecycle --------------------------------------------------
+  //
+  // The database never holds a password -- GoTrue does. What it holds is
+  // whether the person has chosen their own yet, which is the part the app
+  // routes on and therefore the part worth proving.
+  console.log("\nPassword lifecycle");
+
+  const handFlag = await one("select must_change_password from core.app_users where id = $1", [
+    shopHand.id,
+  ]);
+  check("someone added by an owner or admin arrives flagged", handFlag.must_change_password, true);
+
+  const ownerFlag = await one("select must_change_password from core.app_users where id = $1", [
+    owner.id,
+  ]);
+  check("the bootstrapped owner chose their own and is not asked", ownerFlag.must_change_password, false);
+
+  // me() is the only way the app learns any of this.
+  await asUser(shopHand.id);
+  const handMe = await one("select must_change_password from public.me()");
+  check("me() carries the flag to the app", handMe.must_change_password, true);
+
+  await db.query("select public.set_password_changed()");
+  const handCleared = await one("select must_change_password from core.app_users where id = $1", [
+    shopHand.id,
+  ]);
+  check("choosing a password clears it", handCleared.must_change_password, false);
+
+  // Re-arming it for someone else is a team action, under the team rules.
+  await asUser(owner.id);
+  await db.query("select public.require_password_change($1)", [staff.id]);
+  const staffFlag = await one("select must_change_password from core.app_users where id = $1", [
+    staff.id,
+  ]);
+  check("an owner can re-arm it for someone else", staffFlag.must_change_password, true);
+
+  // Resetting a password must not become the way around the owner asymmetry.
+  await asUser(adminUser.id);
+  let adminResetsOwner = "no error";
+  try {
+    await db.query("select public.require_password_change($1)", [owner.id]);
+  } catch (error) {
+    adminResetsOwner = error.message.includes("only an owner may reset an owner")
+      ? "refused"
+      : error.message;
+  }
+  check("an admin cannot reset an owner's password", adminResetsOwner, "refused");
+
+  let resetsSelf = "no error";
+  try {
+    await db.query("select public.require_password_change($1)", [adminUser.id]);
+  } catch (error) {
+    resetsSelf = error.message.includes("your account page") ? "refused" : error.message;
+  }
+  check("and cannot reset their own from the team screen", resetsSelf, "refused");
+
+  await asUser(staff.id);
+  let staffResets = "no error";
+  try {
+    await db.query("select public.require_password_change($1)", [shopHand.id]);
+  } catch (error) {
+    staffResets = error.message.includes("only an owner") ? "refused" : error.message;
+  }
+  check("staff cannot reset anybody's password", staffResets, "refused");
+
+  // Clearing only ever touches the caller. The function takes no argument at
+  // all, so there is nothing to pass; this proves it did not reach further.
+  await db.query("select public.set_password_changed()");
+  const stillFlagged = await one("select count(*)::int as n from core.app_users where must_change_password");
+  check("clearing your own leaves everyone else's alone", stillFlagged.n, 0);
+
+  await asUser(owner.id);
+  await db.query("select public.require_password_change($1)", [staff.id]);
+  const teamSees = await one(
+    "select count(*)::int as n from public.team() where must_change_password",
+  );
+  check("the team screen can see who has not set their own", teamSees.n, 1);
+
   // --- closed periods ------------------------------------------------------
   await db.query(
     "update core.accounting_periods set closed_at = now(), closed_by = $1 where closed_at is null",

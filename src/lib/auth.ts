@@ -8,6 +8,12 @@ export interface CurrentUser {
   email: string | null;
   role: Role;
   locationIds: string[];
+  /**
+   * True while the account is still using a password somebody else chose. The
+   * app layout refuses to render anything but /password until it clears, so
+   * this is a gate rather than a hint.
+   */
+  mustChangePassword: boolean;
 }
 
 /**
@@ -39,6 +45,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     role: Role;
     status: string;
     location_ids: string[] | null;
+    must_change_password: boolean | null;
   };
 
   if (row.status !== "active") return null;
@@ -49,5 +56,8 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     email: row.email,
     role: row.role,
     locationIds: row.location_ids ?? [],
+    // Defaults to true, not false. If the column is ever missing or null the
+    // safe reading is "this password was not chosen by them".
+    mustChangePassword: row.must_change_password ?? true,
   };
 });

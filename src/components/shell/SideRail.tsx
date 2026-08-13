@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { KeyRound } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { navGroupsFor } from "@/lib/nav";
 import type { Role } from "@/lib/permissions";
@@ -83,6 +84,14 @@ export function SideRail({
         <p className="code mt-0.5 text-concrete-500">{role.replace("_", " ")}</p>
         <div className="mt-3 flex items-center gap-2">
           <ThemeToggle />
+          <Link
+            href="/password"
+            aria-label="Change your password"
+            title="Change your password"
+            className="flex h-9 w-9 items-center justify-center border-2 border-bitumen-700 text-concrete-300 transition-colors hover:text-signal-400"
+          >
+            <KeyRound size={16} aria-hidden />
+          </Link>
           <SignOutButton />
         </div>
       </div>

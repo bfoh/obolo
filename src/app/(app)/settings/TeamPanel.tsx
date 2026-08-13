@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, X } from "lucide-react";
+import { KeyRound, Plus, X } from "lucide-react";
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { LocationRow, TeamMemberRow } from "@/lib/data/types";
@@ -9,7 +9,12 @@ import { canManageMember, grantableRoles, hasFullAccess } from "@/lib/permission
 import { Button } from "@/components/ui/Button";
 import { FormError } from "@/components/ui/FormError";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { addTeamMember, updateTeamMember, type ActionState } from "./actions";
+import {
+  addTeamMember,
+  resetMemberPassword,
+  updateTeamMember,
+  type ActionState,
+} from "./actions";
 
 const field =
   "w-full border-2 border-line bg-panel-2 px-3 py-2.5 text-ink outline-none focus-visible:border-focus";
@@ -46,6 +51,9 @@ function Submit() {
  */
 function MemberControls({ member, viewerRole }: { member: TeamMemberRow; viewerRole: Role }) {
   const [state, formAction] = useActionState<ActionState, FormData>(updateTeamMember, {
+    error: null,
+  });
+  const [reset, resetAction] = useActionState<ActionState, FormData>(resetMemberPassword, {
     error: null,
   });
   const grantable = grantableRoles(viewerRole);
@@ -87,11 +95,31 @@ function MemberControls({ member, viewerRole }: { member: TeamMemberRow; viewerR
             {suspended ? "Restore" : "Suspend"}
           </Button>
         </form>
+
+        <form action={resetAction}>
+          <input type="hidden" name="user_id" value={member.id} />
+          <Button type="submit" variant="quiet" size="sm" title="Give them a new temporary password">
+            <KeyRound size={13} aria-hidden />
+            Reset
+          </Button>
+        </form>
       </div>
 
-      {state.error ? (
+      {/* The one moment this password is readable. It is never stored anywhere
+          the app can read it back, so there is no second chance to show it. */}
+      {reset.ok && reset.notice ? (
+        <div role="status" className="mt-2 border-2 border-tally bg-tally-soft px-3 py-2 text-left">
+          <p className="micro text-tally">New password for {member.full_name}</p>
+          <p className="code mt-1 select-all text-base text-ink">{reset.notice}</p>
+          <p className="mt-1 text-xs text-ink-3">
+            Shown once. They must choose their own at next sign-in.
+          </p>
+        </div>
+      ) : null}
+
+      {state.error ?? reset.error ? (
         <p role="alert" className="mt-1.5 max-w-56 text-xs text-signal">
-          {state.error}
+          {state.error ?? reset.error}
         </p>
       ) : null}
     </div>
@@ -153,6 +181,9 @@ export function TeamPanel({
               <p className="code truncate">
                 {member.email}
                 {member.status === "active" ? "" : " · suspended"}
+                {/* Worth surfacing: it means a second person still knows this
+                    account's password, and nobody can tell from the roster. */}
+                {member.must_change_password ? " · password not set by them" : ""}
               </p>
             </div>
 
@@ -206,7 +237,7 @@ export function TeamPanel({
                 className={field}
               />
               <p className="mt-1.5 text-xs text-ink-3">
-                Give this to them directly. They can change it after signing in.
+                Give this to them directly. They must choose their own the first time they sign in.
               </p>
             </div>
             <div>

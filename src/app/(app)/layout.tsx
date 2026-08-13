@@ -20,6 +20,13 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     redirect("/login");
   }
 
+  // Someone still on a password an owner typed for them gets exactly one
+  // destination. /password sits outside this route group on purpose, so this
+  // redirect cannot loop into itself and there is no pathname to special-case.
+  if (user.mustChangePassword) {
+    redirect("/password");
+  }
+
   const companyName = await getCompanyName();
 
   return (

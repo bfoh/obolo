@@ -268,6 +268,8 @@ export interface TeamMemberRow {
   status: string;
   location_ids: string[];
   created_at: string;
+  /** Still on a password somebody else chose; they are held at /password. */
+  must_change_password: boolean;
 }
 
 export interface CustomerRow {
