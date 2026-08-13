@@ -46,7 +46,30 @@ Costing is **FIFO by batch**, allocated in SQL inside one transaction under a pe
 
 ### Roles
 
-`owner`, `warehouse_staff`, `retail_staff`. Staff never see cost, margin, or stock value anywhere in the app. Roles resolve from `core.app_users` rather than JWT claims, so a demotion takes effect on the next statement instead of the next token refresh.
+| Role | Sees cost | Manages the team | Notes |
+|---|---|---|---|
+| `owner` | yes | anyone | The business owner. Only an owner may create, promote to, demote or suspend another owner. |
+| `admin` | yes | everyone except owners | Every right an owner has, minus the line above. |
+| `warehouse_staff` | no | no | Warehouse floor: receives, dispatches transfers, sells wholesale. |
+| `retail_staff` | no | no | Shop floor: receives transfers, sells retail, takes returns. |
+
+Staff never see cost, margin, or stock value anywhere in the app. Roles resolve from `core.app_users` rather than JWT claims, so a demotion takes effect on the next statement instead of the next token refresh — and a suspension withdraws access to every view on the same statement, not just to the app's own gates.
+
+**An admin is an owner for every authorization decision**, and that is implemented in exactly one place. `public.current_user_role()` returns an *effective* role, mapping a stored `admin` to `owner`; `is_owner()`, `core.can_post()`, `core.require_owner()` and every `v_*` view's cost mask all read through it, so none of them mention `admin` at all. The stored role is still available — `public.current_user_account_role()` and `public.is_account_owner()` — and is used for two things only: showing the right label on the team screen, and enforcing the one asymmetry above.
+
+`src/lib/permissions.ts` mirrors this for the UI: `can()` collapses `admin` onto `owner` rather than carrying its own column in the matrix, so the two cannot drift apart one capability at a time. Use `hasFullAccess()` to gate a screen; `isOwner()` is narrower and is only for deciding who may touch an owner account.
+
+#### The system administrator
+
+A standing break-glass `admin` account, so whoever maintains the deployment can look at a problem without borrowing the owner's password.
+
+```bash
+npm run admin:create                              # uses OBOLO_SYSTEM_ADMIN_EMAIL
+npm run admin:create -- ops@example.com "Ops"     # or name it directly
+npm run admin:create -- --reset-password          # rotate it
+```
+
+No password is stored in this repository. If `OBOLO_SYSTEM_ADMIN_PASSWORD` is unset the script generates one, prints it once, and writes it nowhere — a default admin password committed to a repo is a way in, not a maintenance tool. The role is assigned by `public.provision_system_admin()`, which is granted to `service_role` alone; that grant *is* its authorization, which is why it may take an email where nothing else in this codebase may.
 
 ## Getting started
 
@@ -89,6 +112,7 @@ It is not a substitute for `supabase db reset` — it shims the parts of a Supab
 | `npm run lint` | ESLint |
 | `npm run test` | Vitest, once |
 | `npm run test:watch` | Vitest, watching |
+| `npm run admin:create` | Provision the break-glass system administrator |
 
 ## Conventions
 

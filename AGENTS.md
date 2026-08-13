@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # OBOLO
 
-Warehouse stock and valuation. One company, three roles, FIFO batch costing.
+Warehouse stock and valuation. One company, four roles, FIFO batch costing.
 See README.md for the architecture.
 
 ## Non-negotiables
@@ -19,7 +19,17 @@ See README.md for the architecture.
   table to `public`. Reads go through `public.v_*` views (which mask cost via
   `is_owner()`), writes go through `public.post_*` RPCs. There is no third path.
 - **Every SECURITY DEFINER function derives identity from `auth.uid()`**, never
-  from an argument. A function taking a user id is an IDOR.
+  from an argument. A function taking a user id is an IDOR. The two functions
+  that take an email (`bootstrap_owner`, `provision_system_admin`) are the
+  documented exceptions, and each is safe only because of how it is granted.
+- **Authorization asks `public.current_user_role()`, which returns the
+  EFFECTIVE role.** A stored `admin` resolves to `owner` there, which is the
+  single point where "an admin is an owner" is implemented -- `is_owner()`,
+  `core.can_post()` and every view's cost mask inherit it. Never add `'admin'`
+  to a role comparison; if you find yourself wanting to, the check is asking the
+  wrong function. `current_user_account_role()` and `is_account_owner()` return
+  the STORED role and exist only for display and for the one asymmetry: an admin
+  may not create, promote to, demote or suspend an owner.
 - **Money arithmetic never happens in TypeScript.** Postgres returns `numeric`
   as a string; float64 cannot hold `numeric(18,6)` exactly. All summing,
   allocation and valuation is SQL. The client formats only.

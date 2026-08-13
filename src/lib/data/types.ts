@@ -17,6 +17,8 @@
  * Totals come from SQL.
  */
 
+import type { Role } from "@/lib/permissions";
+
 /**
  * Money and cost. Cast to text in the view (migration 23) so the exact decimal
  * survives the wire -- PostgREST serialises `numeric` as a JSON number, which
@@ -261,7 +263,8 @@ export interface TeamMemberRow {
   id: string;
   full_name: string;
   email: string | null;
-  role: "owner" | "warehouse_staff" | "retail_staff";
+  /** The stored role. `public.team()` reports admins as admins, not as owners. */
+  role: Role;
   status: string;
   location_ids: string[];
   created_at: string;

@@ -58,9 +58,12 @@ async function main() {
 
   console.log("Identity and reference data");
   const { data: me } = await supabase.rpc("me").single();
-  check("me() resolves the caller from a real JWT", me?.role, "owner");
-  check("and returns their name", me?.full_name, "Ebenezer Barning");
-  check("owner is assigned to every location", me?.location_ids?.length, 3);
+  // Signed in as whoever OBOLO_EMAIL names -- the owner, or an admin standing
+  // in for one. Both resolve to an effective role of owner, which is the thing
+  // the rest of this script depends on.
+  check("me() resolves the caller from a real JWT", me?.role, process.env.OBOLO_ROLE ?? "owner");
+  check("and returns their name", Boolean(me?.full_name), true);
+  check("they are assigned to every location", me?.location_ids?.length, 3);
 
   const { data: isOwner } = await supabase.rpc("is_owner");
   check("is_owner() is true over HTTP", isOwner, "true");

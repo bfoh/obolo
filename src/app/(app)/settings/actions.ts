@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
-import { isOwner } from "@/lib/permissions";
+import { grantableRoles, hasFullAccess, type Role } from "@/lib/permissions";
 
 export interface ActionState {
   error: string | null;
@@ -40,27 +40,36 @@ export async function updateSettings(_prev: ActionState, formData: FormData): Pr
  * Two steps, and both are gated. The Auth admin API is the only way to create
  * an account, and it needs the service role -- which bypasses RLS entirely, so
  * the caller's role is checked here before that client is ever constructed.
- * `add_team_member` then checks `is_owner()` again in the database, so neither
- * half is a way in on its own.
+ * `add_team_member` then checks `is_owner()` again in the database, and refuses
+ * an admin who tries to mint an owner, so neither half is a way in on its own.
  */
 export async function addTeamMember(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const me = await getCurrentUser();
-  if (!isOwner(me?.role)) {
-    return { error: "Only an owner can add someone to the team." };
+  if (!hasFullAccess(me?.role)) {
+    return { error: "Only an owner or admin can add someone to the team." };
   }
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const fullName = String(formData.get("full_name") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  const role = String(formData.get("role") ?? "");
+  const role = String(formData.get("role") ?? "") as Role;
   const locationIds = formData.getAll("location_ids").map(String).filter(Boolean);
 
   if (!email || !fullName) return { error: "Enter their name and email." };
   if (password.length < 8) return { error: "Give them a password of at least 8 characters." };
-  if (role !== "warehouse_staff" && role !== "retail_staff" && role !== "owner") {
-    return { error: "Choose a role." };
+  // Checked against what THIS caller may grant, not against the list of roles
+  // that exist -- otherwise an admin could post `owner` past the form.
+  if (!grantableRoles(me?.role).includes(role)) {
+    return {
+      error:
+        role === "owner"
+          ? "Only an owner can make someone else an owner."
+          : "Choose a role.",
+    };
   }
-  if (role !== "owner" && locationIds.length === 0) {
+  // Owners and admins answer for the whole company, so the database assigns
+  // them every location rather than asking.
+  if (!hasFullAccess(role) && locationIds.length === 0) {
     return { error: "Choose at least one location they work at." };
   }
 
@@ -99,11 +108,43 @@ export async function addTeamMember(_prev: ActionState, formData: FormData): Pro
   return { error: null, ok: true, notice: `${fullName} can now sign in.` };
 }
 
-export async function updateTeamMember(formData: FormData): Promise<void> {
+/**
+ * Changes an existing member's role or status.
+ *
+ * The gate that counts is `public.update_team_member()`, which refuses an admin
+ * reaching for an owner account, refuses anyone editing their own role, and
+ * refuses removing the last owner. This checks the caller too so the round trip
+ * is skipped, and surfaces whatever the database says rather than silently
+ * doing nothing.
+ */
+export async function updateTeamMember(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const me = await getCurrentUser();
+  if (!hasFullAccess(me?.role)) {
+    return { error: "Only an owner or admin can change someone's rights." };
+  }
+
+  const role = String(formData.get("role") ?? "") as Role | "";
+  if (role && !grantableRoles(me?.role).includes(role)) {
+    return {
+      error:
+        role === "owner"
+          ? "Only an owner can make someone else an owner."
+          : "That is not a role you can give.",
+    };
+  }
+
   const supabase = await createClient();
-  await supabase.rpc("update_team_member", {
+  const { error } = await supabase.rpc("update_team_member", {
     p_user_id: String(formData.get("user_id") ?? ""),
+    p_role: role || null,
     p_status: String(formData.get("status") ?? "") || null,
   });
+
+  if (error) return { error: readable(error.message) };
+
   revalidatePath("/settings");
+  return { error: null, ok: true };
 }

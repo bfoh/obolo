@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { getPurchaseOrders } from "@/lib/data/purchasing";
 import { getSuppliers } from "@/lib/data/receipts";
 import { getCurrentUser } from "@/lib/auth";
-import { isOwner } from "@/lib/permissions";
+import { hasFullAccess } from "@/lib/permissions";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -25,7 +25,7 @@ const TONE = {
 
 export default async function PurchaseOrdersPage() {
   const [user, orders] = await Promise.all([getCurrentUser(), getPurchaseOrders()]);
-  const owner = isOwner(user?.role);
+  const owner = hasFullAccess(user?.role);
   const suppliers = owner ? await getSuppliers() : [];
 
   return (

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getPurchaseOrder, getPurchaseOrderLines } from "@/lib/data/purchasing";
 import { searchProducts } from "@/lib/data/stock";
 import { getCurrentUser } from "@/lib/auth";
-import { isOwner } from "@/lib/permissions";
+import { hasFullAccess } from "@/lib/permissions";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PurchaseOrderDetail } from "./PurchaseOrderDetail";
@@ -35,7 +35,7 @@ export default async function PurchaseOrderPage({ params }: PageProps<"/purchase
   if (!po) notFound();
 
   const lines = await getPurchaseOrderLines(id);
-  const owner = isOwner(user?.role);
+  const owner = hasFullAccess(user?.role);
   const editable = po.status === "draft" || po.status === "sent";
   const products = editable && owner ? await searchProducts("", 300) : [];
 

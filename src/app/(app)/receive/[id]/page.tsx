@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getReceipt, getReceiptLines } from "@/lib/data/receipts";
 import { searchProducts } from "@/lib/data/stock";
 import { getCurrentUser } from "@/lib/auth";
-import { isOwner } from "@/lib/permissions";
+import { hasFullAccess } from "@/lib/permissions";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge, statusTone } from "@/components/ui/StatusBadge";
 import { formatDate, formatDateTime, isMasked, money, qty as formatQty } from "@/lib/format";
@@ -25,7 +25,7 @@ export default async function ReceiptPage({ params }: PageProps<"/receive/[id]">
 
   const lines = await getReceiptLines(id);
   const isDraft = receipt.status === "draft";
-  const products = isDraft && isOwner(user?.role) ? await searchProducts("", 300) : [];
+  const products = isDraft && hasFullAccess(user?.role) ? await searchProducts("", 300) : [];
 
   return (
     <>
@@ -61,7 +61,7 @@ export default async function ReceiptPage({ params }: PageProps<"/receive/[id]">
           ) : null}
         </dl>
 
-        {isDraft && isOwner(user?.role) ? (
+        {isDraft && hasFullAccess(user?.role) ? (
           <DraftReceipt receipt={receipt} lines={lines} products={products} />
         ) : (
           <section className="rule bg-panel">

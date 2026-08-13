@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getProduct, getLocations, getStockLevel } from "@/lib/data/stock";
 import { getCurrentUser } from "@/lib/auth";
-import { isOwner } from "@/lib/permissions";
+import { hasFullAccess } from "@/lib/permissions";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ProductForm } from "@/components/catalogue/ProductForm";
 import { RetireProduct } from "@/components/catalogue/RetireProduct";
@@ -29,7 +29,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[id]"
   ]);
 
   if (!product) notFound();
-  const owner = isOwner(user?.role);
+  const owner = hasFullAccess(user?.role);
   const barcodes = owner ? await getProductBarcodes(id) : [];
 
   const stocked = locations.filter((l) => l.kind !== "in_transit");

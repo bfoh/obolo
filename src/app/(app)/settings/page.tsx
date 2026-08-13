@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth";
-import { isOwner } from "@/lib/permissions";
+import { hasFullAccess } from "@/lib/permissions";
 import { getSettings, getTeam } from "@/lib/data/admin";
 import { getLocations } from "@/lib/data/stock";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -14,9 +14,9 @@ export const dynamic = "force-dynamic";
 export default async function SettingsPage() {
   const user = await getCurrentUser();
 
-  // The RPCs behind this page are owner-only and would raise; redirecting is
-  // kinder than showing a screen of errors.
-  if (!isOwner(user?.role)) redirect("/");
+  // The RPCs behind this page refuse anyone without full access and would
+  // raise; redirecting is kinder than showing a screen of errors.
+  if (!user || !hasFullAccess(user.role)) redirect("/");
 
   const [settings, team, locations] = await Promise.all([
     getSettings(),
@@ -40,7 +40,12 @@ export default async function SettingsPage() {
         </section>
 
         <section className="mt-5">
-          <TeamPanel team={team} locations={locations.filter((l) => l.kind !== "in_transit")} />
+          <TeamPanel
+            team={team}
+            locations={locations.filter((l) => l.kind !== "in_transit")}
+            viewerId={user.id}
+            viewerRole={user.role}
+          />
         </section>
       </main>
     </>

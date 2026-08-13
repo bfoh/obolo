@@ -2,7 +2,7 @@ import { Sparkles } from "lucide-react";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth";
-import { isOwner } from "@/lib/permissions";
+import { hasFullAccess } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -31,7 +31,7 @@ interface InsightRow {
 
 export default async function InsightsPage() {
   const user = await getCurrentUser();
-  if (!isOwner(user?.role)) redirect("/");
+  if (!hasFullAccess(user?.role)) redirect("/");
 
   const supabase = await createClient();
   const { data } = await supabase.from("v_ai_insights").select("*").limit(30);

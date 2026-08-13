@@ -14,7 +14,8 @@
     "db:lint": "supabase db lint",
     "db:reset": "supabase db reset",
     "db:verify": "node scripts/verify-migrations.mjs",
-    "db:push:direct": "node scripts/push-migrations.mjs"
+    "db:push:direct": "node scripts/push-migrations.mjs",
+    "admin:create": "node scripts/create-system-admin.mjs"
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.67",

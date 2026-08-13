@@ -1,7 +1,7 @@
 import { generateObject, generateText } from "ai";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
-import { isOwner } from "@/lib/permissions";
+import { hasFullAccess } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 export const maxDuration = 60;
@@ -49,7 +49,7 @@ type ReportName = keyof typeof REPORTS;
 export async function POST(req: Request) {
   const user = await getCurrentUser();
   // Every report here returns cost or margin.
-  if (!user || !isOwner(user.role)) {
+  if (!user || !hasFullAccess(user.role)) {
     return Response.json({ error: "Reports are for the owner." }, { status: 403 });
   }
 

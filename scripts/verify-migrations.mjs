@@ -833,6 +833,175 @@ async function runLedgerTests(db) {
   check("staff cannot commit the company to an order", staffPo, "refused");
   await asUser(owner.id);
 
+  // --- the admin role ------------------------------------------------------
+  //
+  // The claim under test is "an admin is an owner for every authorization
+  // decision", which is implemented once, in current_user_role(). These check
+  // the places that inherit it rather than the mapping itself: a masked view, a
+  // require_owner() RPC, and the posting authoriser.
+  console.log("\nThe admin role");
+
+  const adminUser = await one(
+    "insert into auth.users (email) values ('sysadmin@obolo.test') returning id",
+  );
+  await db.query(
+    `insert into core.app_users (id, full_name, email, role)
+     values ($1, 'Systems Admin', 'sysadmin@obolo.test', 'admin')`,
+    [adminUser.id],
+  );
+  await db.query(
+    "insert into core.user_locations (user_id, location_id) select $1, id from core.locations",
+    [adminUser.id],
+  );
+
+  // Read as the owner first, so the comparison below is against the position
+  // as it stands right now rather than a snapshot from earlier in the script.
+  const ownerNow = await one(
+    "select total_cost_value from public.v_stock_levels where product_id = $1 and location_id = $2",
+    [product.id, wh.id],
+  );
+
+  await asUser(adminUser.id);
+
+  const adminEffective = await one("select public.current_user_role() as role");
+  check("an admin resolves to an effective role of owner", adminEffective.role, "owner");
+
+  const adminStored = await one("select public.current_user_account_role() as role");
+  check("but is still stored, and displayed, as an admin", adminStored.role, "admin");
+
+  const adminIsOwner = await one("select public.is_owner() as v, public.is_account_owner() as o");
+  check("is_owner() lets the admin through", adminIsOwner.v, true);
+  check("is_account_owner() does not", adminIsOwner.o, false);
+
+  // The cost mask is the app's central control. If admins leaked here, the
+  // whole role would be a hole rather than a feature.
+  const adminView = await one(
+    "select total_cost_value from public.v_stock_levels where product_id = $1 and location_id = $2",
+    [product.id, wh.id],
+  );
+  check("an admin sees cost, exactly as the owner does", adminView.total_cost_value, ownerNow.total_cost_value);
+  check("and it is a real figure, not a masked null", adminView.total_cost_value !== null, true);
+
+  const adminTeam = await one("select count(*)::int as n from public.team()");
+  check("an admin can read the team", adminTeam.n > 0, true);
+
+  const adminProduct = await one(
+    `select public.create_product('ADMIN-1', 'Admin created', 'piece', 10, 12) as id`,
+  );
+  check("an admin can do owner-only work", typeof adminProduct.id, "string");
+
+  const adminPost = await one(
+    `select public.post_movement('damage', $1, $2, 1, 'admin write-off') as id`,
+    [product.id, wh.id],
+  );
+  check("core.can_post() authorises an admin like an owner", typeof adminPost.id, "string");
+
+  // --- the one thing an admin may not do -----------------------------------
+  const shopHand = await one(
+    "insert into auth.users (email) values ('shop@obolo.test') returning id",
+  );
+  const adminAddsStaff = await one(
+    `select public.add_team_member($1, 'Shop Hand', 'shop@obolo.test', 'retail_staff', array[$2]::uuid[]) as id`,
+    [shopHand.id, shop.id],
+  );
+  check("an admin can add a staff member", typeof adminAddsStaff.id, "string");
+
+  const wouldBeOwner = await one(
+    "insert into auth.users (email) values ('sneaky@obolo.test') returning id",
+  );
+  let adminMintsOwner = "no error";
+  try {
+    await db.query(
+      `select public.add_team_member($1, 'Sneaky', 'sneaky@obolo.test', 'owner', '{}'::uuid[])`,
+      [wouldBeOwner.id],
+    );
+  } catch (error) {
+    adminMintsOwner = error.message.includes("only an owner may grant the owner role")
+      ? "refused"
+      : error.message;
+  }
+  check("an admin cannot mint a second owner", adminMintsOwner, "refused");
+
+  let adminTouchesOwner = "no error";
+  try {
+    await db.query("select public.update_team_member($1, null, 'suspended')", [owner.id]);
+  } catch (error) {
+    adminTouchesOwner = error.message.includes("only an owner may change an owner")
+      ? "refused"
+      : error.message;
+  }
+  check("an admin cannot suspend the owner", adminTouchesOwner, "refused");
+
+  let adminPromotesSelf = "no error";
+  try {
+    await db.query("select public.update_team_member($1, 'owner')", [adminUser.id]);
+  } catch (error) {
+    adminPromotesSelf = error.message.includes("cannot change your own role")
+      ? "refused"
+      : error.message;
+  }
+  check("nobody edits their own role, admin included", adminPromotesSelf, "refused");
+
+  // Staff must not have gained anything from the enum growing a value.
+  await asUser(staff.id);
+  let staffPromotes = "no error";
+  try {
+    await db.query("select public.update_team_member($1, 'admin')", [staff.id]);
+  } catch (error) {
+    staffPromotes = error.message.includes("only an owner") ? "refused" : error.message;
+  }
+  check("staff cannot promote themselves to admin", staffPromotes, "refused");
+
+  // --- the owner keeps the last word ---------------------------------------
+  await asUser(owner.id);
+  await db.query("select public.update_team_member($1, null, 'suspended')", [adminUser.id]);
+  const suspendedAdmin = await one("select status from core.app_users where id = $1", [
+    adminUser.id,
+  ]);
+  check("an owner can suspend an admin", suspendedAdmin.status, "suspended");
+
+  await asUser(adminUser.id);
+  const suspendedRole = await one("select public.current_user_role() as role");
+  check("a suspended admin resolves to no role at all", suspendedRole.role, "null");
+
+  const suspendedView = await one(
+    "select count(*)::int as n from public.v_stock_levels where location_id = $1",
+    [wh.id],
+  );
+  check("and sees nothing", suspendedView.n, 0);
+
+  // The same path, for the case that actually happens: a staff member is
+  // suspended but keeps their location assignments. Before can_access_location()
+  // checked status, those assignments alone kept the views open to them.
+  await asUser(owner.id);
+  await db.query("select public.update_team_member($1, null, 'suspended')", [staff.id]);
+  await asUser(staff.id);
+  const suspendedStaffView = await one(
+    "select count(*)::int as n from public.v_stock_levels where location_id = $1",
+    [wh.id],
+  );
+  check("a suspended staff member loses their locations too", suspendedStaffView.n, 0);
+
+  await asUser(owner.id);
+  await db.query("select public.update_team_member($1, null, 'active')", [staff.id]);
+  await db.query("select public.update_team_member($1, null, 'active')", [adminUser.id]);
+
+  // The break-glass provisioning path.
+  const provisioned = await one(
+    `select public.provision_system_admin('sysadmin@obolo.test', 'Systems Admin') as id`,
+  );
+  check("provision_system_admin is idempotent", provisioned.id, adminUser.id);
+
+  let provisionOwner = "no error";
+  try {
+    await db.query(`select public.provision_system_admin('owner@obolo.test', 'Oops')`);
+  } catch (error) {
+    provisionOwner = error.message.includes("that account is an owner")
+      ? "refused"
+      : error.message;
+  }
+  check("and refuses to demote an owner into it", provisionOwner, "refused");
+
   // --- closed periods ------------------------------------------------------
   await db.query(
     "update core.accounting_periods set closed_at = now(), closed_by = $1 where closed_at is null",

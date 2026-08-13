@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { searchProducts } from "@/lib/data/stock";
 import { getCurrentUser } from "@/lib/auth";
-import { can, isOwner } from "@/lib/permissions";
+import { can, hasFullAccess } from "@/lib/permissions";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { NewProductPanel } from "@/components/catalogue/NewProductPanel";
@@ -18,7 +18,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
   const q = typeof params.q === "string" ? params.q : "";
 
   const [user, products] = await Promise.all([getCurrentUser(), searchProducts(q, 300)]);
-  const owner = isOwner(user?.role);
+  const owner = hasFullAccess(user?.role);
   const showsCost = can(user?.role, "cost");
 
   return (
