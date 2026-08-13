@@ -34,25 +34,54 @@ export default async function ValuationPage() {
   // a discrepancy, not a balance, so it is called out rather than just listed.
   const transitResidual = transit && Number(transit.qty_on_hand) > 0 ? transit : null;
 
+  // Whether the headline figure is shown at all. Staff never see value, so for
+  // them the warehouse tile is the only place the position appears and must
+  // not be hidden on narrow screens.
+  const hero = showsCost && warehouse !== undefined;
+
   return (
     <>
       <PageHeader title="Valuation" code={`As of ${formatDateTime(now)} UTC`} />
 
       <main className="px-5 py-6">
-        {showsCost && warehouse ? (
-          <section className="mb-6 border-2 border-line bg-panel p-6">
+        {hero ? (
+          <section className="mb-4 border-2 border-line bg-panel p-5 sm:mb-6 sm:p-6">
             <p className="micro">Warehouse stock value</p>
-            <p className="numeric mt-3 text-5xl font-semibold tracking-tight text-ink sm:text-6xl">
-              <Odometer value={money(warehouse.total_value)} />
+            <p className="numeric mt-2 text-4xl font-semibold tracking-tight text-ink sm:mt-3 sm:text-5xl xl:text-6xl">
+              <Odometer value={money(warehouse!.total_value)} />
             </p>
-            <p className="mt-3 text-sm text-ink-3">
-              <span className="numeric">{formatQty(warehouse.qty_on_hand)}</span> units across{" "}
-              <span className="numeric">{plural(warehouse.product_count, "product")}</span>
+            <p className="mt-2 text-sm text-ink-3 sm:mt-3">
+              <span className="numeric">{formatQty(warehouse!.qty_on_hand)}</span> units across{" "}
+              <span className="numeric">{plural(warehouse!.product_count, "product")}</span>
             </p>
           </section>
         ) : null}
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {/* With nothing in stock the instruction IS the page, so it comes
+            before three tiles reading zero. Buried under them it sat 211px
+            below the fold on a phone -- the only action on the screen, and
+            invisible without scrolling. */}
+        {!hasStock ? (
+          <div className="mb-4 sm:mb-6">
+            <EmptyState
+              icon={PackagePlus}
+              title="No stock recorded yet"
+              description="Receive your first delivery into the warehouse. Every receipt creates a costed batch, and the value above updates as stock moves."
+              action={
+                can(user?.role, "receive") ? (
+                  <Link
+                    href="/receive"
+                    className="press inline-block rule bg-ink px-4 py-2.5 font-display text-xs font-bold uppercase tracking-wider text-ink-invert"
+                  >
+                    Receive stock
+                  </Link>
+                ) : null
+              }
+            />
+          </div>
+        ) : null}
+
+        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
           {positions.map((position) => (
             <ValueTile
               key={position.location_id}
@@ -62,6 +91,10 @@ export default async function ValuationPage() {
               units={position.qty_on_hand}
               skus={position.product_count}
               tone={position.location_kind === "in_transit" ? "transit" : "neutral"}
+              // The hero already IS the warehouse position. On a wide grid the
+              // repeat costs one cell; stacked on a phone it costs a whole
+              // screen, so the tile is dropped there and restored at `sm`.
+              className={hero && position.location_kind === "warehouse" ? "hidden sm:flex" : undefined}
             />
           ))}
         </div>
@@ -95,25 +128,9 @@ export default async function ValuationPage() {
           </section>
         ) : null}
 
-        {!hasStock ? (
-          <div className="mt-6">
-            <EmptyState
-              icon={PackagePlus}
-              title="No stock recorded yet"
-              description="Receive your first delivery into the warehouse. Every receipt creates a costed batch, and the value above updates as stock moves."
-              action={
-                can(user?.role, "receive") ? (
-                  <Link
-                    href="/receive"
-                    className="press inline-block rule bg-ink px-4 py-2.5 font-display text-xs font-bold uppercase tracking-wider text-ink-invert"
-                  >
-                    Receive stock
-                  </Link>
-                ) : null
-              }
-            />
-          </div>
-        ) : (
+        {/* The empty state moved above the tiles; only the alerts belong here,
+            and only once there is stock for them to be about. */}
+        {hasStock ? (
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
             <AlertPanel
               icon={TrendingDown}
@@ -144,7 +161,7 @@ export default async function ValuationPage() {
               }))}
             />
           </div>
-        )}
+        ) : null}
       </main>
     </>
   );

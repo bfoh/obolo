@@ -42,6 +42,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[id]"
       <PageHeader
         title={product.name}
         code={product.sku}
+        back={{ href: "/products", label: "products" }}
         actions={
           <Link href={`/stock/${product.id}`} className={buttonVariants({ variant: "secondary", size: "sm" })}>
             View stock

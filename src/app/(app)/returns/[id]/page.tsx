@@ -32,6 +32,7 @@ export default async function ReturnPage({ params }: PageProps<"/returns/[id]">)
     <>
       <PageHeader
         title={row.return_no}
+        back={{ href: "/returns", label: "returns" }}
         code={`${row.customer_name ?? "No customer"} · ${row.location_code} · ${formatDateTime(row.occurred_at)}`}
         actions={<StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge>}
       />

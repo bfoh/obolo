@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { MoreHorizontal } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { mobileNavFor } from "@/lib/nav";
+import { mobileNavFor, MORE_HREF } from "@/lib/nav";
 import type { Role } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
@@ -13,9 +14,17 @@ function isActive(pathname: string, href: string) {
 
 export function BottomNav({ role }: { role: Role }) {
   const pathname = usePathname();
-  const items = mobileNavFor(role);
+  const tabs = mobileNavFor(role);
 
-  if (items.length === 0) return null;
+  // More carries everything that did not fit a tab, which on a phone is most
+  // of the app. It is always present: without it the side rail's destinations
+  // have no entry point at all below 768px.
+  const items = [
+    ...tabs,
+    { href: MORE_HREF, label: "More", icon: MoreHorizontal },
+  ];
+
+  if (tabs.length === 0) return null;
 
   return (
     <nav

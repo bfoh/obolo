@@ -1,8 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { mobileNavFor, navFor, navGroupsFor, NAV_ITEMS } from "./nav";
+import {
+  mobileNavFor,
+  moreNavFor,
+  navFor,
+  navGroupsFor,
+  MOBILE_TAB_SLOTS,
+  NAV_ITEMS,
+} from "./nav";
 import type { Role } from "./permissions";
 
 const hrefs = (role: Role | null) => navFor(role).map((i) => i.href);
+const ROLES: Role[] = ["owner", "admin", "warehouse_staff", "retail_staff"];
+
+/** Everything a phone can open: the tabs, plus everything behind More. */
+const reachableOnMobile = (role: Role) => [
+  ...mobileNavFor(role).map((i) => i.href),
+  ...moreNavFor(role).flatMap((g) => g.items.map((i) => i.href)),
+];
 
 describe("navFor", () => {
   it("gives the owner every destination", () => {
@@ -46,10 +60,50 @@ describe("navFor", () => {
   });
 });
 
+// The regression this whole file exists to prevent. Before the More route,
+// a phone reached 4 of an owner's 16 destinations and nothing said so.
+describe("mobile reachability", () => {
+  it("leaves no destination unreachable on a phone, for any role", () => {
+    for (const role of ROLES) {
+      const reachable = reachableOnMobile(role);
+      for (const href of hrefs(role)) {
+        expect(reachable, `${role} cannot reach ${href} on a phone`).toContain(href);
+      }
+    }
+  });
+
+  it("reaches everything in at most two taps", () => {
+    // A tab is one tap. Anything else is More, then the link: two.
+    for (const role of ROLES) {
+      const tabs = mobileNavFor(role).map((i) => i.href);
+      const behindMore = moreNavFor(role).flatMap((g) => g.items.map((i) => i.href));
+      for (const href of hrefs(role)) {
+        expect(tabs.includes(href) || behindMore.includes(href)).toBe(true);
+      }
+    }
+  });
+
+  // The bug that cost an owner their Sales tab: five items flagged for mobile,
+  // four slots, and declaration order broke the tie.
+  it("drops the lowest-ranked tab, not the last-declared one", () => {
+    const ownerTabs = mobileNavFor("owner").map((i) => i.href);
+    expect(ownerTabs).toContain("/sales");
+    expect(ownerTabs).not.toContain("/transfers");
+    expect(moreNavFor("owner").flatMap((g) => g.items.map((i) => i.href))).toContain("/transfers");
+  });
+
+  it("orders tabs by rank rather than by position in the file", () => {
+    for (const role of ROLES) {
+      const ranks = mobileNavFor(role).map((i) => i.mobileRank!);
+      expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+    }
+  });
+});
+
 describe("mobileNavFor", () => {
   it("never exceeds four tabs, so tap targets stay above 44px", () => {
-    for (const role of ["owner", "warehouse_staff", "retail_staff", null] as (Role | null)[]) {
-      expect(mobileNavFor(role).length).toBeLessThanOrEqual(4);
+    for (const role of [...ROLES, null] as (Role | null)[]) {
+      expect(mobileNavFor(role).length).toBeLessThanOrEqual(MOBILE_TAB_SLOTS);
     }
   });
 

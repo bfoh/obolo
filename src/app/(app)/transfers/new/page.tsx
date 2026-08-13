@@ -11,7 +11,7 @@ export default async function NewTransferPage() {
 
   return (
     <>
-      <PageHeader title="New transfer" />
+      <PageHeader title="New transfer" back={{ href: "/transfers", label: "transfers" }} />
       <main className="px-5 py-6">
         <div className="rule max-w-lg bg-panel p-5">
           <NewTransferForm locations={locations} />

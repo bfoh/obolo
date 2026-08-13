@@ -35,6 +35,7 @@ export default async function SalePage({ params }: PageProps<"/sales/[id]">) {
     <>
       <PageHeader
         title={sale.invoice_no ?? sale.order_no}
+        back={{ href: "/sales", label: "sales" }}
         code={`${sale.customer_name ?? "Walk-in"} · ${sale.channel} · ${sale.location_code}`}
         actions={
           sale.status === "draft" ? (

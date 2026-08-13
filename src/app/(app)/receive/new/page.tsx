@@ -13,7 +13,7 @@ export default async function NewReceiptPage() {
 
   return (
     <>
-      <PageHeader title="New delivery" />
+      <PageHeader title="New delivery" back={{ href: "/receive", label: "deliveries" }} />
       <main className="px-5 py-6">
         <div className="rule max-w-lg bg-panel p-5">
           <NewReceiptForm locations={stocked} suppliers={suppliers} />
