@@ -31,28 +31,49 @@ export interface NavItem {
    * receive it, and both need the page.
    */
   capability?: Capability | Capability[];
-  /** Shown in the mobile bottom bar. At most four, plus the action button. */
-  mobile?: boolean;
+  /**
+   * Position in the mobile tab bar, lowest first. Absent means never a tab.
+   *
+   * A rank rather than a boolean because more destinations want a tab than
+   * there are slots, and the previous `mobile: true` plus `.slice(0, 4)` broke
+   * the tie by declaration order -- which silently cost an owner their Sales
+   * tab. Ranking states the priority instead of letting file order decide it.
+   */
+  mobileRank?: number;
   group: "stock" | "trade" | "control";
 }
 
+/**
+ * Tabs in the bottom bar, not counting More.
+ *
+ * Four plus More is five targets across the narrowest phone we support, which
+ * is 78px each -- comfortably past the 44px floor, and the count iOS itself
+ * settles on.
+ */
+export const MOBILE_TAB_SLOTS = 4;
+
+/** Everything that does not fit a tab lives here. Mobile only. */
+export const MORE_HREF = "/more";
+
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/", label: "Valuation", icon: Gauge, mobile: true, group: "stock" },
+  { href: "/", label: "Valuation", icon: Gauge, mobileRank: 1, group: "stock" },
   {
     href: "/warehouse",
     label: "Warehouse",
     icon: Warehouse,
     capability: "warehouseStock",
-    mobile: true,
+    mobileRank: 2,
     group: "stock",
   },
-  { href: "/shop", label: "Shop", icon: Store, capability: "shopStock", mobile: true, group: "stock" },
+  { href: "/shop", label: "Shop", icon: Store, capability: "shopStock", mobileRank: 3, group: "stock" },
   {
     href: "/transfers",
     label: "Transfers",
     icon: ArrowLeftRight,
     capability: ["transferDispatch", "transferReceive"],
-    mobile: true,
+    // Ranked below Sales: staff who dispatch transfers also sell, and selling
+    // happens many times a day where a transfer happens a few times a week.
+    mobileRank: 5,
     group: "stock",
   },
   { href: "/receive", label: "Receive", icon: PackagePlus, capability: "receive", group: "stock" },
@@ -64,7 +85,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Sales",
     icon: Receipt,
     capability: ["wholesaleSale", "retailSale"],
-    mobile: true,
+    mobileRank: 4,
     group: "trade",
   },
   { href: "/customers", label: "Customers", icon: Users, capability: "customers", group: "trade" },
@@ -96,13 +117,29 @@ export function navFor(role: Role | null | undefined): NavItem[] {
 }
 
 /**
- * The mobile bottom bar. Capped at four so tap targets stay above 44px on a
- * small phone; anything beyond that lives behind the "More" route.
+ * The tabs in the mobile bottom bar, best first.
+ *
+ * Sorted by `mobileRank` before the cut, so the destination that loses its slot
+ * is the one ranked lowest rather than the one declared last. Whatever does not
+ * fit is still reachable: BottomNav appends a More tab, and `moreNavFor()`
+ * returns everything.
  */
 export function mobileNavFor(role: Role | null | undefined): NavItem[] {
   return navFor(role)
-    .filter((item) => item.mobile)
-    .slice(0, 4);
+    .filter((item) => item.mobileRank !== undefined)
+    .sort((a, b) => a.mobileRank! - b.mobileRank!)
+    .slice(0, MOBILE_TAB_SLOTS);
+}
+
+/**
+ * Everything a role can open, for the More sheet.
+ *
+ * Deliberately the full list rather than "whatever missed a tab". People look
+ * for a destination where they last found it, and a menu that hides the four
+ * things already on screen makes the other twelve harder to trust.
+ */
+export function moreNavFor(role: Role | null | undefined) {
+  return navGroupsFor(role);
 }
 
 export function navGroupsFor(role: Role | null | undefined) {

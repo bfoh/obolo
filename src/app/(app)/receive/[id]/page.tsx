@@ -31,6 +31,7 @@ export default async function ReceiptPage({ params }: PageProps<"/receive/[id]">
     <>
       <PageHeader
         title={receipt.grn_no}
+        back={{ href: "/receive", label: "deliveries" }}
         code={`${receipt.supplier_name ?? "No supplier"} · ${receipt.location_code}`}
         actions={<StatusBadge tone={statusTone(receipt.status)}>{receipt.status}</StatusBadge>}
       />

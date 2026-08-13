@@ -21,7 +21,7 @@ export default async function NewSalePage() {
 
   return (
     <>
-      <PageHeader title="New sale" />
+      <PageHeader title="New sale" back={{ href: "/sales", label: "sales" }} />
       <main className="px-5 py-6">
         <div className="rule max-w-lg bg-panel p-5">
           <NewSaleForm channels={channels} customers={customers} />

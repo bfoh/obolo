@@ -33,6 +33,7 @@ export default async function CountPage({ params }: PageProps<"/counts/[id]">) {
     <>
       <PageHeader
         title={count.count_no}
+        back={{ href: "/counts", label: "counts" }}
         code={`${count.location_name} · frozen ${formatDateTime(count.frozen_at)}`}
         actions={<StatusBadge tone={TONE[count.status]}>{count.status}</StatusBadge>}
       />

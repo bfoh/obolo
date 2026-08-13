@@ -57,9 +57,14 @@ export default async function ProductStockPage({
 
   const showsCost = can(user?.role, "cost");
 
+  // This screen is reached from whichever floor's stock list the product was
+  // tapped on, so back goes there rather than to a fixed parent.
+  const backHref = location.kind === "retail" ? "/shop" : "/warehouse";
+  const backLabel = location.kind === "retail" ? "the shop" : "the warehouse";
+
   return (
     <>
-      <PageHeader title={product.name} code={product.sku} />
+      <PageHeader title={product.name} code={product.sku} back={{ href: backHref, label: backLabel }} />
 
       <main className="px-5 py-6">
         {stocked.length > 1 ? (

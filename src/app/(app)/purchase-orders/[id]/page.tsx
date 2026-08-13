@@ -43,6 +43,7 @@ export default async function PurchaseOrderPage({ params }: PageProps<"/purchase
     <>
       <PageHeader
         title={po.po_no}
+        back={{ href: "/purchase-orders", label: "orders" }}
         code={`${po.supplier_name} · ${po.location_code}`}
         actions={<StatusBadge tone={TONE[po.status]}>{po.status.replace("_", " ")}</StatusBadge>}
       />

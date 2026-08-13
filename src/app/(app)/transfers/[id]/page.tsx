@@ -39,6 +39,7 @@ export default async function TransferPage({ params }: PageProps<"/transfers/[id
     <>
       <PageHeader
         title={transfer.transfer_no}
+        back={{ href: "/transfers", label: "transfers" }}
         code={`${transfer.from_code} → ${transfer.to_code}`}
         actions={<StatusBadge tone={statusTone(transfer.status)}>{transfer.status}</StatusBadge>}
       />

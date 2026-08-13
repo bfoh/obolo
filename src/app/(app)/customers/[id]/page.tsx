@@ -27,7 +27,7 @@ export default async function CustomerPage({ params }: PageProps<"/customers/[id
 
   return (
     <>
-      <PageHeader title={customer.name} code={customer.code} />
+      <PageHeader title={customer.name} code={customer.code} back={{ href: "/customers", label: "customers" }} />
 
       <main className="px-5 py-6">
         <section className="rule mb-5 bg-panel p-5">
